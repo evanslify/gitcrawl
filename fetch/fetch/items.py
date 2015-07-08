@@ -8,8 +8,12 @@
 from scrapy.item import Item, Field
 
 class UserInfo(Item):
-    user_public_repos = Field()
+    user_public_repo_counts = Field()
     user_hireable = Field()
+    user_id = Field()
+    user_name = Field()
+    user_blog = Field()
+    user_followers_count = Field()
 
 class RepoInfo(Item):
     forks_from = Field()
@@ -20,3 +24,5 @@ class RepoInfo(Item):
     parent_forked_times = Field()
     forks = Field()
     fork_usernames = Field()
+    contributed_times = Field()
+    contributed_users = Field()
