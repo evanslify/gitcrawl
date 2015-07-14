@@ -26,8 +26,8 @@ class GitSpider(scrapy.Spider):
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
             yield scrapy.Request(url=target['url'], meta=meta, callback=target['callback'], errback=self.callnext)
-        else:
-            yield response.meta.get('Loader')
+        # else:
+            # yield response.meta.get('Loader')
 
     def pageturn(self, header, url):
         # called only when response.headers.get('Link') returns valid
