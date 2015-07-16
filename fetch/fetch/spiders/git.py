@@ -6,15 +6,21 @@ import re
 # from scrapy.http import Request
 # from scrapy.loader import ItemLoader
 # import logging
+from fetch.items import GithubItem
 
 
 class GitSpider(scrapy.Spider):
     name = 'git'
 
-    start_urls = ['https://api.github.com/users/xxg1413']
+    start_urls = []
 
     http_user = 'evanslify'
     http_pass = '4e4b57cc169d0e7a6812f73a9a48843b84a2200b'
+
+    def __init__(self, *args, **kwargs):
+        super(GitSpider, self).__init__(*args, **kwargs)
+
+        self.start_urls = [kwargs.get('start_url')]
 
     def callnext(self, response):
         ''' Call next target for the item loader, or yields it if completed. '''
@@ -27,7 +33,12 @@ class GitSpider(scrapy.Spider):
             target = meta['callstack'].pop(0)
             yield scrapy.Request(url=target['url'], meta=meta, callback=target['callback'], errback=self.callnext)
         else:
-            yield response.meta.get('Loader')
+            items = GithubItem()
+            loader = response.meta.get('Loader')
+            items['GistInfo'] = loader['UserGistInfo']
+            items['UserInfo'] = loader['UserInfo']
+            items['RepoInfo'] = loader['RepoInfo']
+            yield items
 
     def pageturn(self, header, url):
         # called only when response.headers.get('Link') returns valid
@@ -61,7 +72,7 @@ class GitSpider(scrapy.Spider):
 
         response.meta.update({
             'callstack': []
-             })
+        })
 
         # end initializing data structure.
 
@@ -96,16 +107,21 @@ class GitSpider(scrapy.Spider):
         repos_url = response.url + '/repos?per_page=100'
 
         if jr.get('followers') != 0:
-            callstack.append({'url': followers_url, 'callback': self.parse_user_followers})
+            callstack.append(
+                {'url': followers_url, 'callback': self.parse_user_followers})
         if jr.get('following') != 0:
-            callstack.append({'url': following_url, 'callback': self.parse_user_following})
+            callstack.append(
+                {'url': following_url, 'callback': self.parse_user_following})
         if jr.get('public_gists') != 0:
-            callstack.append({'url': gists_url, 'callback': self.parse_user_gists})
+            callstack.append(
+                {'url': gists_url, 'callback': self.parse_user_gists})
 
-        callstack.append({'url': starred_url, 'callback': self.parse_user_starred})
+        callstack.append(
+            {'url': starred_url, 'callback': self.parse_user_starred})
 
         if jr.get('public_repos') != 0:
-            callstack.append({'url': repos_url, 'callback': self.parse_all_repos})
+            callstack.append(
+                {'url': repos_url, 'callback': self.parse_all_repos})
 
         return self.callnext(response)
 
@@ -268,7 +284,8 @@ class GitSpider(scrapy.Spider):
             })
 
             repo_detail_url = target.get('url')
-            repo_stargazers_url = target.get('stargazers_url') + '?per_page=100&page=1'
+            repo_stargazers_url = target.get(
+                'stargazers_url') + '?per_page=100&page=1'
             repo_forks_url = target.get('forks_url') + '?per_page=100&page=1'
             repo_issues_url = target.get('issues_url') + '?per_page=100&page=1'
             repo_contributors_url = target.get(
@@ -318,7 +335,8 @@ class GitSpider(scrapy.Spider):
         items = loader['RepoInfo']
 
         current_repo_name = response.url.split('/')[-2]
-        target_repo = filter(lambda x: x['repo_name'] == current_repo_name, items)
+        target_repo = filter(
+            lambda x: x['repo_name'] == current_repo_name, items)
         items = target_repo[0]
         jr = json.loads(response.body_as_unicode())
         forking_users = []
@@ -359,7 +377,8 @@ class GitSpider(scrapy.Spider):
         jr = json.loads(response.body_as_unicode())
 
         current_repo_name = response.url.split('/')[-2]
-        target_repo = filter(lambda x: x['repo_name'] == current_repo_name, items)
+        target_repo = filter(
+            lambda x: x['repo_name'] == current_repo_name, items)
         items = target_repo[0]
 
         items['repo_contributed_times'] = len(jr)
@@ -405,7 +424,8 @@ class GitSpider(scrapy.Spider):
         items = loader['RepoInfo']
 
         current_repo_name = response.url.split('/')[-2]
-        target_repo = filter(lambda x: x['repo_name'] == current_repo_name, items)
+        target_repo = filter(
+            lambda x: x['repo_name'] == current_repo_name, items)
         items = target_repo[0]
 
         jr = json.loads(response.body_as_unicode())
