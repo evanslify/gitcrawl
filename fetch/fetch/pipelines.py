@@ -5,6 +5,7 @@
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import redis
+import time
 
 
 class FetchPipeline(object):
@@ -14,8 +15,6 @@ class FetchPipeline(object):
 
 
 class RedisPipeline(object):
-
-    collection_name = 'scrapy_items'
 
     def __init__(self, redis_uri, redis_port, redis_db, redis_auth):
         self.redis_uri = redis_uri
@@ -39,5 +38,8 @@ class RedisPipeline(object):
     #     self.client.close()
 
     def process_item(self, item, spider):
-        self.r.set(self.collection_name, item)
-        return item
+        login = item.get('UserInfo').get('user_id')
+        epoch = str(int(time.time()))
+        collection_name = 'github' + "_" + epoch
+        self.r.hset(login, collection_name, item)
+        # return item
