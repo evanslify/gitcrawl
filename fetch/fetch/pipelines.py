@@ -33,7 +33,8 @@ class RedisPipeline(object):
             )
 
     def open_spider(self, spider):
-        self.r = redis.StrictRedis(host=self.redis_uri, port=self.redis_port, db=self.redis_db, password=self.redis_auth)
+        self.connection_pool = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=self.redis_db, password=self.redis_auth)
+        self.r = redis.StrictRedis(connection_pool=self.connection_pool)
 
     def process_item(self, item, spider):
         self.r.set(self.collection_name, item)
