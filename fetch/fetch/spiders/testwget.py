@@ -17,10 +17,11 @@ from fetch.items import HashListItem
 class testwget(scrapy.Spider):
     name = 'testwget'
 
-    start_urls = ['http://52.68.90.91/target.json']
+    # start_urls = []
 
-    # http_user = 'evanslify'
-    # http_pass = '4e4b57cc169d0e7a6812f73a9a48843b84a2200b'
+    # def __init__(self, *args, **kwargs):
+    #     super(testwget, self).__init__(*args, **kwargs)
+    #     self.start_urls = [kwargs.get('start_url')]
 
     def parse(self, response):
 
@@ -35,4 +36,5 @@ class testwget(scrapy.Spider):
 
             item = HashListItem()
             item['HashInfo'] = hashlist
-            return item
+            # return item
+            return hashlist
