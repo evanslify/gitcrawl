@@ -11,6 +11,7 @@ from zipfile import ZipFile
 import requests
 import hashlib
 import json
+from fetch.items import HashListItem
 
 
 class testwget(scrapy.Spider):
@@ -32,4 +33,6 @@ class testwget(scrapy.Spider):
                 doc = zip.open(ii)
                 hashlist[ii] = hashlib.md5(doc.read()).hexdigest()
 
-            yield hashlist
+            item = HashListItem()
+            item['HashInfo'] = hashlist
+            return item

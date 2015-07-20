@@ -12,3 +12,6 @@ class GithubItem(Item):
     UserInfo = Field()
     GistInfo = Field()
     RepoInfo = Field()
+
+class HashListItem(Item):
+    HashInfo = Field()
