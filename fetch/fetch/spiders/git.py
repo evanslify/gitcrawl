@@ -100,11 +100,11 @@ class GitSpider(scrapy.Spider):
             'user_api_url': response.url,
         })
 
-        followers_url = response.url + '/followers?per_page=100'
-        following_url = response.url + '/following?per_page=100'
-        gists_url = response.url + '/gists?per_page=100'
-        starred_url = response.url + '/starred?per_page=100'
-        repos_url = response.url + '/repos?per_page=100'
+        followers_url = response.url + '/followers?per_page=100&page=1'
+        following_url = response.url + '/following?per_page=100&page=1'
+        gists_url = response.url + '/gists?per_page=100&page=1'
+        starred_url = response.url + '/starred?per_page=100&page=1'
+        repos_url = response.url + '/repos?per_page=100&page=1'
 
         if jr.get('followers') != 0:
             callstack.append(
@@ -205,9 +205,8 @@ class GitSpider(scrapy.Spider):
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
         items = loader['UserGistInfo']
-        gist_id = re.findall('\d+', response.url)
-
-        target_gist = filter(lambda x: x['id'] == gist_id, items)
+        gist_id = re.findall('(?<=gists/)(.*)(?=/)', response.url)[0]
+        target_gist = filter(lambda x: x['gist_id'] == gist_id, items)
         # this filters out the dict with current Gist ID we need from the pool of all Gists.
         # only [{dict of Gist ID}] will be left in target_gist.
 
@@ -222,7 +221,6 @@ class GitSpider(scrapy.Spider):
                 'gist_commenting_user_id': commenting_user.get('id'),
                 'gist_commenting_user_login': commenting_user.get('login'),
             })
-
         target_gist[0]['comments'] = comments
 
         return self.callnext(response)
@@ -374,6 +372,10 @@ class GitSpider(scrapy.Spider):
         # always run, always check whether len() is True.
         loader = response.meta['Loader']
         items = loader['RepoInfo']
+
+        if response.status == 204:
+            return self.callnext(response)
+
         jr = json.loads(response.body_as_unicode())
 
         current_repo_name = response.url.split('/')[-2]
@@ -446,9 +448,7 @@ class GitSpider(scrapy.Spider):
             })
 
         if 'Link' in response.headers:
-            # logging.info('Yes')
             headers_link = response.headers.get('Link')
-            # logging.info(headers_link)
             turn = self.pageturn(headers_link, response.url)
             if turn is not 'last':
                 callstack.insert(0, {
