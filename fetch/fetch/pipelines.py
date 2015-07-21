@@ -36,8 +36,9 @@ class RedisPipeline(object):
         self.r = redis.StrictRedis(connection_pool=self.connection_pool)
 
     def process_item(self, item, spider):
-        epoch = str(int(time.time()))
-        user_login = item.get('UserInfo').get('user_id')
-        key_name = user_login + ";" + epoch
-        self.r.hset('gitcrawl', key_name, item)
+        epoch = int(time.time())
+        user_github_id = item.get('UserInfo').get('user_id')
+        self.r.sadd('index', user_github_id)
+        self.r.hset(user_github_id, epoch, item)
+
         return item
