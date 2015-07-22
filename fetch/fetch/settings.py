@@ -7,7 +7,7 @@
 REDIS_DB_URI = '52.68.90.91'
 REDIS_DB_PORT = 6379
 REDIS_DB_AUTH = '1955747fb39e1e6e7175dd6694f14db01280bf0ef4ce09617a7e590f0004998035712f13b3143e51f23c1cc9cea1977e560a3a1b2fd00f706d64e49a280c7ebb'
-REDIS_DB_INDEX = 0
+REDIS_DB_INDEX = 3
 # Scrapy settings for fetch project
 #
 # For simplicity, this file contains only settings considered important or
@@ -22,7 +22,7 @@ BOT_NAME = 'fetch'
 SPIDER_MODULES = ['fetch.spiders']
 NEWSPIDER_MODULE = 'fetch.spiders'
 
-LOG_STDOUT = True
+# LOG_STDOUT = True
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 # USER_AGENT = 'fetch (+http://www.yourdomain.com)'

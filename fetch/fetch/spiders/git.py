@@ -5,7 +5,7 @@ import json
 import re
 # from scrapy.http import Request
 # from scrapy.loader import ItemLoader
-import logging
+# import logging
 from fetch.items import GithubItem
 
 
@@ -31,7 +31,6 @@ class GitSpider(scrapy.Spider):
         # Items remaining in the stack? Execute them
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
-            logging.info(target['url'])
             yield scrapy.Request(url=target['url'], meta=meta, callback=target['callback'], errback=self.callnext)
         else:
             items = GithubItem()
@@ -102,13 +101,14 @@ class GitSpider(scrapy.Spider):
         })
 
         followers_url = response.url + '/followers?per_page=100&page=1'
-        html_userpage_followers_url = items.get('user_html_url') + '/followers/'
+        html_userpage_followers_url = items.get('user_html_url') + '/followers'
         following_url = response.url + '/following?per_page=100&page=1'
-        html_userpage_following_url = items.get('user_html_url') + '/following/'
+        html_userpage_following_url = items.get('user_html_url') + '/following'
         gists_url = response.url + '/gists?per_page=100&page=1'
         starred_url = response.url + '/starred?per_page=100&page=1'
         repos_url = response.url + '/repos?per_page=100&page=1'
-        html_userpage_js_url = items.get('user_html_url') + '?tab=contributions&from=2013-01-08&_pjax=.js-contribution-activity'
+        html_userpage_js_url = items.get(
+            'user_html_url') + '?tab=contributions&from=2013-01-08&_pjax=.js-contribution-activity'
 
         if jr.get('followers') != 0:
             callstack.extend([
@@ -138,7 +138,8 @@ class GitSpider(scrapy.Spider):
         loader = response.meta['Loader']
         items = loader['UserInfo']
 
-        contrib_number = response.selector.xpath('//span[@class="contrib-number"]/text()').extract()
+        contrib_number = response.selector.xpath(
+            '//span[@class="contrib-number"]/text()').extract()
 
         items.update({
             'user_last_year_contributes': contrib_number[0],
@@ -149,52 +150,62 @@ class GitSpider(scrapy.Spider):
         return self.callnext(response)
 
     def parse_html_user_followers(self, response):
-
+        # clone of parse_html_user_following
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['UserInfo']['user_followers']
 
-        user_followers_name_list = response.selector.xpath('//h3[@class="follow-list-name"]/span/a/text()').extract()
-        user_followers_info_list = response.selector.xpath('//p[@class="follow-list-info"]').extract()
+        user_followers_name_list = response.selector.xpath(
+            '//h3[@class="follow-list-name"]/span/a/text()').extract()
+        user_followers_info_list = response.selector.xpath(
+            '//p[@class="follow-list-info"]/descendant-or-self::text()').extract()
+        user_followers_info_list = [name for name in user_followers_info_list if name.strip()]
 
         for i in range(0, len(user_followers_name_list)):
-            current_login = response.selector.xpath('//h3[@class="follow-list-name"]/span/a/@href').extract()[i][1:]
+            current_login = response.selector.xpath(
+                '//h3[@class="follow-list-name"]/span/a/@href').extract()[i][1:]
             target_followers_user = filter(lambda x: x['user_followers_login'] == current_login, items)[0]
             target_followers_user.update({
                 'user_followers_name': user_followers_name_list[i],
                 'user_followers_info': user_followers_info_list[i],
             })
 
-        html_pagination = response.selector.xpath('//div[@class="pagination"]/a/@href').extract()
+        html_pagination = response.selector.xpath(
+            '//div[@class="pagination"]/a[text()[contains(.,"Next")]]/@href').extract()
         if len(html_pagination) > 0:
             callstack.insert(
                 0,
-                {'url': html_pagination, 'callback': self.parse_html_user_followers})
+                {'url': html_pagination[0], 'callback': self.parse_html_user_followers})
 
         return self.callnext(response)
 
     def parse_html_user_following(self, response):
-
+        # clone of parse_html_user_followers
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['UserInfo']['user_following']
 
-        user_following_name_list = response.selector.xpath('//h3[@class="follow-list-name"]/span/a/text()').extract()
-        user_following_info_list = response.selector.xpath('//p[@class="follow-list-info"]').extract()
+        user_following_name_list = response.selector.xpath(
+            '//h3[@class="follow-list-name"]/span/a/text()').extract()
+        user_following_info_list = response.selector.xpath(
+            '//p[@class="follow-list-info"]/descendant-or-self::text()').extract()
+        user_following_info_list = [name for name in user_following_info_list if name.strip()]
 
         for i in range(0, len(user_following_name_list)):
-            current_login = response.selector.xpath('//h3[@class="follow-list-name"]/span/a/@href').extract()[i][1:]
+            current_login = response.selector.xpath(
+                '//h3[@class="follow-list-name"]/span/a/@href').extract()[i][1:]
             target_followers_user = filter(lambda x: x['user_following_login'] == current_login, items)[0]
             target_followers_user.update({
                 'user_following_name': user_following_name_list[i],
                 'user_following_info': user_following_info_list[i],
             })
 
-        html_pagination = response.selector.xpath('//div[@class="pagination"]/a/@href').extract()
+        html_pagination = response.selector.xpath(
+            '//div[@class="pagination"]/a[text()[contains(.,"Next")]]/@href').extract()
         if len(html_pagination) > 0:
             callstack.insert(
                 0,
-                {'url': html_pagination, 'callback': self.parse_html_user_following})
+                {'url': html_pagination[0], 'callback': self.parse_html_user_following})
 
         return self.callnext(response)
 
