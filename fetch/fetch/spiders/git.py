@@ -1,12 +1,11 @@
-# working :(
-
 import scrapy
 import json
 import re
-# from scrapy.http import Request
-# from scrapy.loader import ItemLoader
-# import logging
 from fetch.items import GithubItem
+'''
+GitHub crawler under Scrapy framework
+usage: scrapy crawl -a start_url='<github username>' -a mode='<all/user,gist,repo>' git
+'''
 
 
 class GitSpider(scrapy.Spider):
@@ -19,12 +18,11 @@ class GitSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(GitSpider, self).__init__(*args, **kwargs)
-
-        self.start_urls = [kwargs.get('start_url')]
+        self.start_urls = ['https://api.github.com/users/' + kwargs.get('start_url')]
+        self.parsing_mode = kwargs.get('mode', 'all').split(',')
 
     def callnext(self, response):
-        ''' Call next target for the item loader, or yields it if completed. '''
-        # borrowed from http://goo.gl/OfMLXG
+        # Call next target for the item loader, or yields it if completed. http://goo.gl/OfMLXG
         # Get the meta object from the request, as the response
         # does not contain it.
         meta = response.request.meta
