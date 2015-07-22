@@ -36,6 +36,8 @@ class RedisPipeline(object):
         self.r = redis.StrictRedis(connection_pool=self.connection_pool)
 
     def process_item(self, item, spider):
+        # delete empty keys in items.
+        item = dict([(a, b) for a, b in item.items() if len(b) > 0])
         epoch = int(time.time())
         user_github_id = item.get('UserInfo').get('user_id')
         self.r.sadd('index', user_github_id)

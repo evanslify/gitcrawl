@@ -2,6 +2,7 @@ import scrapy
 import json
 import re
 from fetch.items import GithubItem
+import logging
 '''
 GitHub crawler under Scrapy framework
 usage: scrapy crawl -a start_url='<github username>' -a mode='<all/user,gist,repo>' git
@@ -20,6 +21,10 @@ class GitSpider(scrapy.Spider):
         super(GitSpider, self).__init__(*args, **kwargs)
         self.start_urls = ['https://api.github.com/users/' + kwargs.get('start_url')]
         self.parsing_mode = kwargs.get('mode', 'all').split(',')
+        valid_parsing_mode = ['all', 'user', 'gist', 'repo']
+        for i in self.parsing_mode:
+            if i not in valid_parsing_mode:
+                raise Exception('Invalid parsing mode.')
 
     def callnext(self, response):
         # Call next target for the item loader, or yields it if completed. http://goo.gl/OfMLXG
@@ -33,7 +38,7 @@ class GitSpider(scrapy.Spider):
         else:
             items = GithubItem()
             loader = response.meta.get('Loader')
-            items['GistInfo'] = loader['UserGistInfo']
+            items['GistInfo'] = loader['GistInfo']
             items['UserInfo'] = loader['UserInfo']
             items['RepoInfo'] = loader['RepoInfo']
             yield items
@@ -52,34 +57,69 @@ class GitSpider(scrapy.Spider):
 
     def parse(self, response):
 
+        response.meta.update({
+            'callstack': [],
+            'Loader': {},
+            })
+
+        callstack = response.meta['callstack']
+        loader = response.meta['Loader']
+
+        loader['UserInfo'] = {}
+        loader['GistInfo'] = []
+        loader['RepoInfo'] = []
+
+        user_start_url = response.url
+        gist_start_url = response.url + '/gists'
+        repo_start_url = response.url + '/repos'
+        login = re.findall('(?<=users/)(.*)', response.url)[0]
+        search_id_url = 'https://api.github.com/search/users?q=' + login + '%20in:login&per_page=1'
+
+        callstack.append({
+            'url': search_id_url, 'callback': self.parse_user_id
+            })
+        if 'all' in self.parsing_mode:
+            callstack.extend([
+                {'url': response.url, 'callback': self.parse_user_page},
+                {'url': gist_start_url, 'callback': self.parse_user_gists},
+                {'url': repo_start_url, 'callback': self.parse_all_repos}])
+            return self.callnext(response)
+        else:
+            for arg_mode in self.parsing_mode:
+                if arg_mode == 'repo':
+                    callstack.append(
+                        {'url': repo_start_url, 'callback': self.parse_all_repos})
+                elif arg_mode == 'gist':
+                    callstack.append(
+                        {'url': gist_start_url, 'callback': self.parse_user_gists})
+                elif arg_mode == 'user':
+                    callstack.append(
+                        {'url': user_start_url, 'callback': self.parse_user_page})
+            return self.callnext(response)
+
+    def parse_user_id(self, response):
+
+        jr = json.loads(response.body_as_unicode())
+        loader = response.meta['Loader']
+        items = loader['UserInfo']
+        user_id = jr.get('items')[0].get('id')
+        items.update({
+            'user_id': user_id
+            })
+        return self.callnext(response)
+
+    def parse_user_page(self, response):
         # parsing user page.
         # https://api.github.com/users/<username>
 
         jr = json.loads(response.body_as_unicode())
-
-        # always retrive meta-loader and callstack.
-
-        # initialize data structure right here.
-
-        response.meta.update({
-            'Loader': {
-                'UserInfo': {},
-                'UserGistInfo': [],
-                'RepoInfo': [],
-            }})
-
-        response.meta.update({
-            'callstack': []
-        })
-
-        # end initializing data structure.
 
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['UserInfo']
 
         items.update({
-            'user_id': jr.get('id'),
+            # 'user_id': jr.get('id'),
             'user_html_url': jr.get('html_url'),
             'user_public_repo_count': jr.get('public_repos'),
             'user_public_gist_count': jr.get('public_gists'),
@@ -92,7 +132,7 @@ class GitSpider(scrapy.Spider):
             'user_blog': jr.get('blog'),
             'user_location': jr.get('location'),
             'user_bio': jr.get('bio'),
-            'user_followers_count': jr.get('followers'),
+            'user_following_count': jr.get('following'),
             'user_created': jr.get('created_at'),
             'user_updated': jr.get('updated_at'),
             'user_api_url': response.url,
@@ -105,30 +145,21 @@ class GitSpider(scrapy.Spider):
         gists_url = response.url + '/gists?per_page=100&page=1'
         starred_url = response.url + '/starred?per_page=100&page=1'
         repos_url = response.url + '/repos?per_page=100&page=1'
+
         html_userpage_js_url = items.get(
             'user_html_url') + '?tab=contributions&from=2013-01-08&_pjax=.js-contribution-activity'
 
-        if jr.get('followers') != 0:
+        if items['user_followers_count'] > 0:
             callstack.extend([
                 {'url': followers_url, 'callback': self.parse_user_followers},
                 {'url': html_userpage_followers_url, 'callback': self.parse_html_user_followers}])
-
-        if jr.get('following') != 0:
+        if items['user_following_count'] > 0:
             callstack.extend([
                 {'url': following_url, 'callback': self.parse_user_following},
                 {'url': html_userpage_following_url, 'callback': self.parse_html_user_following}])
-
-        if jr.get('public_gists') != 0:
-            callstack.append(
-                {'url': gists_url, 'callback': self.parse_user_gists})
-
         callstack.extend([
             {'url': starred_url, 'callback': self.parse_user_starred},
             {'url': html_userpage_js_url, 'callback': self.parse_html_userpage_js}])
-
-        if jr.get('public_repos') != 0:
-            callstack.append(
-                {'url': repos_url, 'callback': self.parse_all_repos})
 
         return self.callnext(response)
 
@@ -257,7 +288,7 @@ class GitSpider(scrapy.Spider):
         jr = json.loads(response.body_as_unicode())
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
-        items = loader['UserGistInfo']
+        items = loader['GistInfo']
 
         for i in range(0, len(jr)):
             gist = jr[i]
@@ -287,7 +318,7 @@ class GitSpider(scrapy.Spider):
 
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
-        items = loader['UserGistInfo']
+        items = loader['GistInfo']
         gist_id = re.findall('(?<=gists/)(.*)(?=/)', response.url)[0]
         target_gist = filter(lambda x: x['gist_id'] == gist_id, items)
         # this filters out the dict with current Gist ID we need from the pool of all Gists.
