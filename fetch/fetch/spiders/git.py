@@ -2,7 +2,6 @@ import scrapy
 import json
 import re
 from fetch.items import GithubItem
-import logging
 '''
 GitHub crawler under Scrapy framework
 usage: scrapy crawl -a start_url='<github username>' -a mode='<all/user,gist,repo>' git
@@ -12,15 +11,17 @@ usage: scrapy crawl -a start_url='<github username>' -a mode='<all/user,gist,rep
 class GitSpider(scrapy.Spider):
     name = 'git'
 
-    start_urls = []
-
+    start_urls = ['http://localhost/']
+    handle_httpstatus_list = [404, 403]
     http_user = 'evanslify'
     http_pass = '4e4b57cc169d0e7a6812f73a9a48843b84a2200b'
 
     def __init__(self, *args, **kwargs):
         super(GitSpider, self).__init__(*args, **kwargs)
-        self.start_urls = ['https://api.github.com/users/' + kwargs.get('start_url')]
         self.parsing_mode = kwargs.get('mode', 'all').split(',')
+        self.target_login = kwargs.get('start_url', '').split(',').pop(0)
+        self.baseurl = 'https://api.github.com'
+
         valid_parsing_mode = ['all', 'user', 'gist', 'repo']
         for i in self.parsing_mode:
             if i not in valid_parsing_mode:
@@ -36,12 +37,12 @@ class GitSpider(scrapy.Spider):
             target = meta['callstack'].pop(0)
             yield scrapy.Request(url=target['url'], meta=meta, callback=target['callback'], errback=self.callnext)
         else:
-            items = GithubItem()
+            item = GithubItem()
             loader = response.meta.get('Loader')
-            items['GistInfo'] = loader['GistInfo']
-            items['UserInfo'] = loader['UserInfo']
-            items['RepoInfo'] = loader['RepoInfo']
-            yield items
+            item['GistInfo'] = loader['GistInfo']
+            item['UserInfo'] = loader['UserInfo']
+            item['RepoInfo'] = loader['RepoInfo']
+            yield item
 
     def pageturn(self, header, url):
         # called only when response.headers.get('Link') returns valid
@@ -69,10 +70,10 @@ class GitSpider(scrapy.Spider):
         loader['GistInfo'] = []
         loader['RepoInfo'] = []
 
-        user_start_url = response.url
-        gist_start_url = response.url + '/gists'
-        repo_start_url = response.url + '/repos'
-        login = re.findall('(?<=users/)(.*)', response.url)[0]
+        user_start_url = self.baseurl + '/users/%s' % self.target_login
+        gist_start_url = user_start_url + '/gists?per_page=100&page=1'
+        repo_start_url = user_start_url + '/repos?per_page=100&page=1'
+        login = self.target_login
         search_id_url = 'https://api.github.com/search/users?q=' + login + '%20in:login&per_page=1'
 
         callstack.append({
@@ -80,7 +81,7 @@ class GitSpider(scrapy.Spider):
             })
         if 'all' in self.parsing_mode:
             callstack.extend([
-                {'url': response.url, 'callback': self.parse_user_page},
+                {'url': user_start_url, 'callback': self.parse_user_page},
                 {'url': gist_start_url, 'callback': self.parse_user_gists},
                 {'url': repo_start_url, 'callback': self.parse_all_repos}])
             return self.callnext(response)
@@ -127,7 +128,8 @@ class GitSpider(scrapy.Spider):
             'user_followers_count': jr.get('followers'),
             'user_company': jr.get('compant'),
             'user_hireable': jr.get('hireable'),
-            'user_id': jr.get('login'),
+            'user_id': jr.get('id'),
+            'user_login': jr.get('login'),
             'user_name': jr.get('name'),
             'user_blog': jr.get('blog'),
             'user_location': jr.get('location'),
@@ -136,15 +138,15 @@ class GitSpider(scrapy.Spider):
             'user_created': jr.get('created_at'),
             'user_updated': jr.get('updated_at'),
             'user_api_url': response.url,
+            'user_following': [],
+            'user_followers': []
         })
 
         followers_url = response.url + '/followers?per_page=100&page=1'
         html_userpage_followers_url = items.get('user_html_url') + '/followers'
         following_url = response.url + '/following?per_page=100&page=1'
         html_userpage_following_url = items.get('user_html_url') + '/following'
-        gists_url = response.url + '/gists?per_page=100&page=1'
         starred_url = response.url + '/starred?per_page=100&page=1'
-        repos_url = response.url + '/repos?per_page=100&page=1'
 
         html_userpage_js_url = items.get(
             'user_html_url') + '?tab=contributions&from=2013-01-08&_pjax=.js-contribution-activity'
@@ -243,6 +245,7 @@ class GitSpider(scrapy.Spider):
         # only called when followers > 0
 
         jr = json.loads(response.body_as_unicode())
+        callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['UserInfo']
 
@@ -256,6 +259,13 @@ class GitSpider(scrapy.Spider):
             'user_followers': followers_list,
         })
 
+        if 'Link' in response.headers:
+            headers_link = response.headers.get('Link')
+            turn = self.pageturn(headers_link, response.url)
+            if turn is not 'last':
+                callstack.append({
+                    'url': turn, 'callback': self.parse_user_followers,
+                })
         return self.callnext(response)
 
     def parse_user_following(self, response):
@@ -399,7 +409,7 @@ class GitSpider(scrapy.Spider):
             repo_stargazers_url = target.get(
                 'stargazers_url') + '?per_page=100&page=1'
             repo_forks_url = target.get('forks_url') + '?per_page=100&page=1'
-            repo_issues_url = target.get('issues_url') + '?per_page=100&page=1'
+            repo_issues_url = target.get('url') + '/issues?per_page=100&page=1'
             repo_contributors_url = target.get(
                 'contributors_url') + '?per_page=100&page=1'
 
@@ -433,8 +443,7 @@ class GitSpider(scrapy.Spider):
                 callstack.append({
                     'url': turn, 'callback': self.parse_all_repos,
                 })
-        items.reverse()
-        callstack.reverse()
+        
         return self.callnext(response)
 
     def parse_repo_forks(self, response):

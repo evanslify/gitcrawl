@@ -2,50 +2,46 @@
 import scrapy
 import json
 import re
-import logging
+from fetch.items import BitbucketItem
 
 
 class BitbucketSpider(scrapy.Spider):
     name = "bitbucket"
-    allowed_domains = ["bitbucket.org"]
-    start_urls = []
-
+    allowed_domains = ['bitbucket.org', 'localhost']
+    start_urls = ['http://localhost/']
+    handle_httpstatus_list = [404, 403]
     http_user = 'ctbotter'
     http_pass = 'zgXFKqEHHKed'
 
     def __init__(self, *args, **kwargs):
         super(BitbucketSpider, self).__init__(*args, **kwargs)
         self.parsing_mode = kwargs.get('mode', 'all').split(',')
-        self.target_login = kwargs.get('start_url', '').split(',')
+        self.target_login = kwargs.get('start_url', '').split(',').pop(0)
         self.baseurl = 'https://api.bitbucket.org/2.0/'
-        self.baseurl_1 = 'https://api.bitbucket.org/1.0/'
 
         valid_parsing_mode = ['all', 'user', 'repo']
         for i in self.parsing_mode:
             if i not in valid_parsing_mode:
                 raise Exception('Invalid parsing mode.')
 
-    def callnext(self, response, body, caller):
+    def callnext(self, response, body=None, caller=None):
         meta = response.request.meta
-        page_turn_url = body.get('next')
+        if body is not None:
+            page_turn_url = body.get('next', None)
+            if page_turn_url is not None:
+                meta['callstack'].insert(
+                    0,
+                    {'url': page_turn_url, 'callback': caller})
         # old callnext from gitspider, now combined with page turning.
-
-        if page_turn_url:
-            meta['callstack'].insert(
-                0,
-                {'url': page_turn_url, 'callback': caller})
-
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
             yield scrapy.Request(url=target['url'], meta=meta, callback=target['callback'], errback=self.callnext)
         else:
-            logging.info(response.meta.get('Loader'))
-        #     items = GithubItem()
-        #     loader = response.meta.get('Loader')
-        #     items['GistInfo'] = loader['GistInfo']
-        #     items['UserInfo'] = loader['UserInfo']
-        #     items['RepoInfo'] = loader['RepoInfo']
-        #     yield items
+            items = BitbucketItem()
+            loader = response.meta.get('Loader')
+            items['RepoInfo'] = loader['RepoInfo']
+            items['UserInfo'] = loader['UserInfo']
+            yield items
 
     def parse(self, response):
 
@@ -60,7 +56,7 @@ class BitbucketSpider(scrapy.Spider):
         loader['UserInfo'] = {}
         loader['RepoInfo'] = []
 
-        current_target_login = self.target_login.pop(0)
+        current_target_login = self.target_login
         user_start_url = self.baseurl + 'users/' + current_target_login
         repo_start_url = self.baseurl + 'repositories/' + current_target_login + '?pagelen=100'
 
@@ -68,7 +64,6 @@ class BitbucketSpider(scrapy.Spider):
             callstack.extend([
                 {'url': user_start_url, 'callback': self.parse_user},
                 {'url': repo_start_url, 'callback': self.parse_repo}]),
-            return self.callnext(response)
         else:
             for arg_mode in self.parsing_mode:
                 if arg_mode == 'repo':
@@ -77,7 +72,7 @@ class BitbucketSpider(scrapy.Spider):
                 elif arg_mode == 'user':
                     callstack.append(
                         {'url': user_start_url, 'callback': self.parse_user})
-            return self.callnext(response)
+        return self.callnext(response)
 
     def parse_user(self, response):
 
@@ -90,7 +85,7 @@ class BitbucketSpider(scrapy.Spider):
             'user_login': jr.get('username'),
             'user_website': jr.get('website'),
             'user_display_name': jr.get('display_name'),
-            'user_uuid': jr.get('uuid'),
+            'user_id': jr.get('uuid')[1:-1],
             'user_created_on': jr.get('created_on'),
             'user_location': jr.get('location'),
             'user_followers': [],
@@ -98,8 +93,8 @@ class BitbucketSpider(scrapy.Spider):
             })
 
         user_links = jr.get('links')
-        user_followers_url = user_links.get('followers')
-        user_following_url = user_links.get('following')
+        user_followers_url = user_links.get('followers').get('href') + '?pagelen=100'
+        user_following_url = user_links.get('following').get('href') + '?pagelen=100'
 
         callstack.extend([
             {'url': user_followers_url, 'callback': self.parse_user_followers},
@@ -113,6 +108,7 @@ class BitbucketSpider(scrapy.Spider):
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['RepoInfo']
+        useritem = loader['UserInfo']
 
         if jr.get('size') > 0:
             for i in jr.get('values'):
@@ -121,7 +117,7 @@ class BitbucketSpider(scrapy.Spider):
                 repo.update({
                     'repo_has_wiki': i.get('has_wiki'),
                     'repo_name': i.get('name'),
-                    'repo_uuid': i.get('uuid'),
+                    'repo_id': i.get('uuid')[1:-1],
                     'repo_language': i.get('language'),
                     'repo_created_on': i.get('created_on'),
                     'repo_updated_on': i.get('updated_on'),
@@ -139,14 +135,18 @@ class BitbucketSpider(scrapy.Spider):
                     repo_parent_login = re.findall('(.*?)(?=/)', i.get('full_name'))[0]
                     repo.update({
                         'repo_parent_full_name': repo_parent_full_name,
-                        'repo_parent_uuid': repo_parent.get('uuid'),
+                        'repo_parent_id': repo_parent.get('uuid')[1:-1],
                         'repo_parent_login': repo_parent_login
                         })
                 items.append(repo)
-
-                fork_url = i.get('links').get('forks') + '?pagelen=100'
+                fork_url = i.get('links').get('forks').get('href') + '?pagelen=100'
                 callstack.append(
                     {'url': fork_url, 'callback': self.parse_repo_forks})
+
+            # in case of only querying for repositories
+            useritem.update({
+                'user_id': jr.get('values')[0].get('owner').get('uuid')[1:-1]})
+
             return self.callnext(response, body=jr, caller=self.parse_repo)
         else:
             return self.callnext(response)
@@ -165,7 +165,7 @@ class BitbucketSpider(scrapy.Spider):
             for i in all_forks:
                 target_repo['repo_forks'].append({
                     'repo_fork_name': i.get('name'),
-                    'repo_fork_uuid': i.get('uuid'),
+                    'repo_fork_id': i.get('uuid')[1:-1],
                     'repo_fork_created_on': i.get('created_on'),
                     'repo_fork_full_name': i.get('full_name'),
                     'repo_fork_has_issues': i.get('has_issues'),
@@ -189,7 +189,7 @@ class BitbucketSpider(scrapy.Spider):
                     'user_followers_login': i.get('username'),
                     'user_followers_website': i.get('website'),
                     'user_followers_display_name': i.get('display_name'),
-                    'user_followers_uuid': i.get('uuid'),
+                    'user_followers_id': i.get('uuid')[1:-1],
                     'user_followers_created_on': i.get('created_on'),
                     'user_followers_location': i.get('location'),
                     })
@@ -210,7 +210,7 @@ class BitbucketSpider(scrapy.Spider):
                     'user_following_login': i.get('username'),
                     'user_following_website': i.get('website'),
                     'user_following_display_name': i.get('display_name'),
-                    'user_following_uuid': i.get('uuid'),
+                    'user_following_id': i.get('uuid')[1:-1],
                     'user_following_created_on': i.get('created_on'),
                     'user_following_location': i.get('location'),
                     })

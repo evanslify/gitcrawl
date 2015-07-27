@@ -13,5 +13,11 @@ class GithubItem(Item):
     GistInfo = Field()
     RepoInfo = Field()
 
+
+class BitbucketItem(Item):
+    UserInfo = Field()
+    RepoInfo = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()
