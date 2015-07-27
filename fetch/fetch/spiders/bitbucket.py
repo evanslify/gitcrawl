@@ -123,6 +123,7 @@ class BitbucketSpider(scrapy.Spider):
                     'repo_updated_on': i.get('updated_on'),
                     'repo_description': i.get('description'),
                     'repo_clone_url': i.get('links').get('clone')[1].get('href'),
+                    'repo_zipurl': i.get('links').get('html').get('href') + 'get/tip.zip',
                     'repo_is_fork': repo_is_fork,
                     'repo_has_issues': i.get('has_issues'),
                     'repo_full_name': i.get('full_name'),
