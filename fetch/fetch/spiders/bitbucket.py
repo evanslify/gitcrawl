@@ -35,7 +35,9 @@ class BitbucketSpider(scrapy.Spider):
         # old callnext from gitspider, now combined with page turning.
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
-            yield scrapy.Request(url=target['url'], meta=meta, callback=target['callback'], errback=self.callnext)
+            yield scrapy.Request(
+                url=target['url'], meta=meta,
+                callback=target['callback'], errback=self.callnext)
         else:
             items = BitbucketItem()
             loader = response.meta.get('Loader')
@@ -48,7 +50,7 @@ class BitbucketSpider(scrapy.Spider):
         response.meta.update({
             'callstack': [],
             'Loader': {},
-            })
+        })
 
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
@@ -58,7 +60,8 @@ class BitbucketSpider(scrapy.Spider):
 
         current_target_login = self.target_login
         user_start_url = self.baseurl + 'users/' + current_target_login
-        repo_start_url = self.baseurl + 'repositories/' + current_target_login + '?pagelen=100'
+        repo_start_url = self.baseurl + 'repositories/' + \
+            current_target_login + '?pagelen=100'
 
         if 'all' in self.parsing_mode:
             callstack.extend([
@@ -90,15 +93,18 @@ class BitbucketSpider(scrapy.Spider):
             'user_location': jr.get('location'),
             'user_followers': [],
             'user_following': [],
-            })
+        })
 
         user_links = jr.get('links')
-        user_followers_url = user_links.get('followers').get('href') + '?pagelen=100'
-        user_following_url = user_links.get('following').get('href') + '?pagelen=100'
+        user_followers_url = user_links.get(
+            'followers').get('href') + '?pagelen=100'
+        user_following_url = user_links.get(
+            'following').get('href') + '?pagelen=100'
 
         callstack.extend([
             {'url': user_followers_url, 'callback': self.parse_user_followers},
-            {'url': user_following_url, 'callback': self.parse_user_following}])
+            {'url': user_following_url, 'callback': self.parse_user_following}
+            ])
 
         return self.callnext(response)
 
@@ -122,25 +128,29 @@ class BitbucketSpider(scrapy.Spider):
                     'repo_created_on': i.get('created_on'),
                     'repo_updated_on': i.get('updated_on'),
                     'repo_description': i.get('description'),
-                    'repo_clone_url': i.get('links').get('clone')[1].get('href'),
-                    'repo_zipurl': i.get('links').get('html').get('href') + 'get/tip.zip',
+                    'repo_clone_url': i.get(
+                        'links').get('clone')[1].get('href'),
+                    'repo_zipurl': i.get(
+                        'links').get('html').get('href') + 'get/tip.zip',
                     'repo_is_fork': repo_is_fork,
                     'repo_has_issues': i.get('has_issues'),
                     'repo_full_name': i.get('full_name'),
                     'repo_forks': [],
-                    })
+                })
 
                 if repo_is_fork:
                     repo_parent = i.get('parent')
                     repo_parent_full_name = i.get('full_name')
-                    repo_parent_login = re.findall('(.*?)(?=/)', i.get('full_name'))[0]
+                    repo_parent_login = re.findall(
+                        '(.*?)(?=/)', i.get('full_name'))[0]
                     repo.update({
                         'repo_parent_full_name': repo_parent_full_name,
                         'repo_parent_id': repo_parent.get('uuid')[1:-1],
                         'repo_parent_login': repo_parent_login
-                        })
+                    })
                 items.append(repo)
-                fork_url = i.get('links').get('forks').get('href') + '?pagelen=100'
+                fork_url = i.get(
+                    'links').get('forks').get('href') + '?pagelen=100'
                 callstack.append(
                     {'url': fork_url, 'callback': self.parse_repo_forks})
 
@@ -157,7 +167,8 @@ class BitbucketSpider(scrapy.Spider):
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
         items = loader['RepoInfo']
-        full_name = re.findall('(?<=repositories/)(.*?)(?=/forks)', response.url)[0]
+        full_name = re.findall(
+            '(?<=repositories/)(.*?)(?=/forks)', response.url)[0]
         if jr.get('size') > 0:
             target_repo = filter(
                 lambda x: x['repo_full_name'] == full_name, items)[0]
@@ -172,8 +183,9 @@ class BitbucketSpider(scrapy.Spider):
                     'repo_fork_has_issues': i.get('has_issues'),
                     'repo_fork_updated_on': i.get('updated_on'),
                     'repo_fork_description': i.get('description')
-                    })
-            return self.callnext(response, body=jr, caller=self.parse_repo_forks)
+                })
+            return self.callnext(
+                response, body=jr, caller=self.parse_repo_forks)
         else:
             return self.callnext(response)
 
@@ -193,8 +205,9 @@ class BitbucketSpider(scrapy.Spider):
                     'user_followers_id': i.get('uuid')[1:-1],
                     'user_followers_created_on': i.get('created_on'),
                     'user_followers_location': i.get('location'),
-                    })
-            return self.callnext(response, body=jr, caller=self.parse_user_followers)
+                })
+            return self.callnext(
+                response, body=jr, caller=self.parse_user_followers)
         else:
             return self.callnext(response)
 
@@ -214,7 +227,8 @@ class BitbucketSpider(scrapy.Spider):
                     'user_following_id': i.get('uuid')[1:-1],
                     'user_following_created_on': i.get('created_on'),
                     'user_following_location': i.get('location'),
-                    })
-            return self.callnext(response, body=jr, caller=self.parse_user_following)
+                })
+            return self.callnext(
+                response, body=jr, caller=self.parse_user_following)
         else:
             return self.callnext(response)
