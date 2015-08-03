@@ -19,5 +19,9 @@ class BitbucketItem(Item):
     RepoInfo = Field()
 
 
+class GeeklistItem(Item):
+    UserInfo = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()
