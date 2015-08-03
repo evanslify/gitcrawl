@@ -1,0 +1,14 @@
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='Go crawl Geeklist!')
+#     parser.add_argument('username', help='The user you want to crawl.',
+#                         type=str, required=True)
+#     parser.add_argument('mode', default=all,
+#                         help='Crawling mode ')
+#     args = parser.parse_args()
+#     print("You asked to query for user %s on mode %s") \
+#         % (args.username, args.mode)
+
+#     if args.mode == 'all':
+#         process = scrapy.crawler.CrawlerProcess(get_project_settings())
+#         process.crawl('GeekList', target=args.username)
+#         process.start()
