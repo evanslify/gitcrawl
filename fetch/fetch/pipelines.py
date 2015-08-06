@@ -31,22 +31,25 @@ class RedisPipeline(object):
             redis_db=crawler.settings.get('REDIS_DB_INDEX', 0)
             )
 
-    def open_spider(self, spider):
-        if 'git' in getattr(spider, 'name'):
-            self.connection_pool_github = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=3, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_github)
-        if 'bitbucket' in getattr(spider, 'name'):
-            self.connection_pool_bitbucket = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=4, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_bitbucket)
-        if 'geeklist' in getattr(spider, 'name'):
-            self.connection_pool_geeklist = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=5, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_geeklist)
+    # def open_spider(self, spider):
+    #     if 'git' in getattr(spider, 'name'):
+    #         self.connection_pool_github = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=3, password=self.redis_auth)
+    #         self.r = redis.StrictRedis(connection_pool=self.connection_pool_github)
+    #     if 'bitbucket' in getattr(spider, 'name'):
+    #         self.connection_pool_bitbucket = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=4, password=self.redis_auth)
+    #         self.r = redis.StrictRedis(connection_pool=self.connection_pool_bitbucket)
+    #     if 'geeklist' in getattr(spider, 'name'):
+    #         self.connection_pool_geeklist = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=5, password=self.redis_auth)
+    #         self.r = redis.StrictRedis(connection_pool=self.connection_pool_geeklist)
+    #     if 'facebook' in getattr(spider, 'name'):
+    #         self.connection_pool_facebook = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=6, password=self.redis_auth)
+    #         self.r = redis.StrictRedis(connection_pool=self.connection_pool_facebook)
 
-    def process_item(self, item, spider):
-        # delete empty keys in items.
-        item = dict([(a, b) for a, b in item.items() if len(b) > 0])
-        epoch = int(time.time())
+    # def process_item(self, item, spider):
+    #     # delete empty keys in items.
+    #     item = dict([(a, b) for a, b in item.items() if len(b) > 0])
+    #     epoch = int(time.time())
 
-        user_id = item.get('UserInfo').get('user_id')
-        self.r.sadd('index', user_id)
-        self.r.hset(user_id, epoch, item)
+    #     user_id = item.get('UserInfo').get('user_id')
+    #     self.r.sadd('index', user_id)
+    #     self.r.hset(user_id, epoch, item)

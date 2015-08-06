@@ -23,5 +23,10 @@ class GeeklistItem(Item):
     UserInfo = Field()
 
 
+class FacebookItem(Item):
+    UserInfo = Field()
+    FacebookInfo = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()
