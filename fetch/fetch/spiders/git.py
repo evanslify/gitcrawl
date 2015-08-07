@@ -9,7 +9,7 @@ usage: scrapy crawl -a start_url='<github username>' -a mode='<all/user,gist,rep
 
 
 class GitSpider(scrapy.Spider):
-    name = 'git'
+    name = 'github'
 
     start_urls = ['http://localhost/']
     handle_httpstatus_list = [404, 403]
@@ -19,7 +19,7 @@ class GitSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super(GitSpider, self).__init__(*args, **kwargs)
         self.parsing_mode = kwargs.get('mode', 'all').split(',')
-        self.target_login = kwargs.get('start_url', '').split(',').pop(0)
+        self.target_login = kwargs.get('target', '').split(',').pop(0)
         self.baseurl = 'https://api.github.com'
 
         valid_parsing_mode = ['all', 'user', 'gist', 'repo']

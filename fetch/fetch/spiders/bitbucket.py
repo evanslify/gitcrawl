@@ -16,7 +16,7 @@ class BitbucketSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super(BitbucketSpider, self).__init__(*args, **kwargs)
         self.parsing_mode = kwargs.get('mode', 'all').split(',')
-        self.target_login = kwargs.get('start_url', '').split(',').pop(0)
+        self.target_login = kwargs.get('target', '').split(',').pop(0)
         self.baseurl = 'https://api.bitbucket.org/2.0/'
 
         valid_parsing_mode = ['all', 'user', 'repo']
