@@ -1,6 +1,6 @@
 ## Bitbucket API Crawler
 * * *
-    Command line usage:
+    Usage:
 
     target: <stackoverflow user display name>
     size: 30 <int, maximum # of questions/answers to fetch>
@@ -50,9 +50,19 @@
 --------------------------------------------
 |user_id | str | User UUID.
 |user_display_name | str | User display name.
-|user_followers | list | List of this user's followers.
+|[user_followers](#UserInfo/user_followers) | list | List of this user's followers.
 |user_login | str | Username.
-|user_following | list | List of following users.
+|user_following | list | List of following users. (Clone of user_followers)
 |user_location | str | User location.
 |user_website | str | User website URI.
 |user_created_on | str | ISO-8601 timestamp of user account creation.
+
+### UserInfo/user_followers
+|Name | Type | Description
+--------------------------------------------
+|user_following_website | str | Follower's website URI.
+|user_following_display_name | str | Follower's display name.
+|user_following_created_on | str | ISO-8601 timestamp of follower's account creation.
+|user_following_location | str | Follower's location.
+|user_following_login | str | Follower's username.
+|user_following_id | str | Follower's UUID.
