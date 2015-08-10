@@ -12,21 +12,21 @@ On this page:
     * [Facebook](https://bitbucket.org/codetalent/gitcrawl/overview#markdown-header-Facebook)
 
 ## StackOverflow
-* [JSON output](src/master/docs/output/stack.json)
-* [Documentation](src/master/docs/github.md)
+* [JSON output](docs/output/stack.json)
+* [Documentation](docs/output/stackoverflow.md)
 
 ## Bitbucket
-* [JSON output](src/master/docs/output/bitbucket.json)
-* [Documentation](src/master/docs/bitbucket.md)
+* [JSON output](docs/output/bitbucket.json)
+* [Documentation](docs/output/bitbucket.md)
 
 ## Github
-* [JSON output](src/master/docs/output/github.json)
-* [Documentation](src/master/docs/github.md)
+* [JSON output](docs/output/github.json)
+* [Documentation](docs/output/github.md)
 
 ## Facebook
-* [JSON output](src/master/docs/output/facebook.json)
-* [Documentation](src/master/docs/facebook.md)
+* [JSON output](docs/output/facebook.json)
+* [Documentation](docs/output/facebook.md)
 
 ## Geeklist
-* [JSON outputs](src/master/docs/output/geeklist.json)
-* [Documentation](src/master/docs/geeklist.md)
+* [JSON outputs](docs/output/geeklist.json)
+* [Documentation](docs/output/geeklist.md)
