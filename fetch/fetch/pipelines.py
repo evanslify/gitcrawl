@@ -44,12 +44,16 @@ class RedisPipeline(object):
         if 'facebook' in getattr(spider, 'name'):
             self.connection_pool_facebook = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=6, password=self.redis_auth)
             self.r = redis.StrictRedis(connection_pool=self.connection_pool_facebook)
+        if 'stackoverflow' in getattr(spider, 'name'):
+            self.connection_pool_stackoverflow = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=7, password=self.redis_auth)
+            self.r = redis.StrictRedis(connection_pool=self.connection_pool_stackoverflow)
 
     def process_item(self, item, spider):
         # delete empty keys in items.
-        item = dict([(a, b) for a, b in item.items() if len(b) > 0])
+        item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
         epoch = int(time.time())
 
-        user_id = item.get('UserInfo').get('user_id')
+        user_id = item.pop('identifier')
+
         self.r.sadd('index', user_id)
         self.r.hset(user_id, epoch, item)

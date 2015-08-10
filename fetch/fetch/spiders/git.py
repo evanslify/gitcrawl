@@ -104,8 +104,8 @@ class GitSpider(scrapy.Spider):
         loader = response.meta['Loader']
         items = loader['UserInfo']
         user_id = jr.get('items')[0].get('id')
-        items.update({
-            'user_id': user_id
+        loader.update({
+            'identifier': user_id
             })
         return self.callnext(response)
 

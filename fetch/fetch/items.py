@@ -12,20 +12,30 @@ class GithubItem(Item):
     UserInfo = Field()
     GistInfo = Field()
     RepoInfo = Field()
+    identifier = Field()
 
 
 class BitbucketItem(Item):
     UserInfo = Field()
     RepoInfo = Field()
+    identifier = Field()
 
 
 class GeeklistItem(Item):
     UserInfo = Field()
+    identifier = Field()
 
 
 class FacebookItem(Item):
     UserInfo = Field()
     FacebookInfo = Field()
+    identifier = Field()
+
+
+class StackOverflowItem(Item):
+    UserInfo = Field()
+    PostInfo = Field()
+    identifier = Field()
 
 
 class HashListItem(Item):

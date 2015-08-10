@@ -59,8 +59,7 @@ class FacebookSpider(scrapy.Spider):
         loader = response.meta['Loader']
         loader.update({
             'FacebookInfo': {},
-            'UserInfo': {
-                'user_id': self.profile_id}
+            'identifier': self.profile_id
             })
         items = loader['FacebookInfo']
         sel = Selector(text=response.body_as_unicode())

@@ -83,6 +83,7 @@ class BitbucketSpider(scrapy.Spider):
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['UserInfo']
+        loader['identifier'] = jr.ger('uuid')
 
         items.update({
             'user_login': jr.get('username'),

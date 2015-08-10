@@ -1,3 +1,4 @@
+dump.rdb
 venv
 *.pyc
 staticfiles
