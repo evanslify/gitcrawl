@@ -1,7 +1,7 @@
 ## CodeTalent CrawlerBot for websites
 
 ### To launch spiders directly in CLI
-    scrapy -a <arguments> <spider name> 
+    scrapy -a <arguments> <spider name>
 
 On this page:
 
@@ -14,6 +14,10 @@ On this page:
 ## StackOverflow
 * [JSON output](src/master/docs/output/stack.json)
 * [Documentation](src/master/docs/github.md)
+
+## Bitbucket
+* [JSON output](src/master/docs/output/bitbucket.json)
+* [Documentation](src/master/docs/bitbucket.md)
 
 ## Github
 * [JSON output](src/master/docs/output/github.json)
