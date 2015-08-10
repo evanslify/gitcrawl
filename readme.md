@@ -1,7 +1,7 @@
 ## CodeTalent CrawlerBot for websites
 
 ### To launch spiders directly in CLI
-    scrapy -a <arguments> <spider name>
+    scrapy -a <arguments> <spider name> 
 
 On this page:
 
