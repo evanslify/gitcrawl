@@ -1,7 +1,7 @@
-## Codetalnet CrawlerBot for websites
+## CodeTalent CrawlerBot for websites
 
-### To launch spiders directly in CLI:
-    > scrapy -a <arguments> <spidername>
+### To launch spiders directly in CLI
+    scrapy -a <arguments> <spidername>
 
 On this page:
 
@@ -12,13 +12,13 @@ On this page:
     * [Facebook](https://bitbucket.org/codetalent/gitcrawl/overview#markdown-header-Facebook)
 
 ## StackOverflow
-    > target: <stackoverflow user display name>
-    > size: 30 <int, maxinum # of questions/answers to fetch>
-    > sort: activity <to sort discussion topics, use one of the following:>
-    > > activity – last_activity_date
-    > > creation – creation_date
-    > > votes – score
-[JSON outputs]
+    target: <stackoverflow user display name>
+    size: 30 <int, maxinum # of questions/answers to fetch>
+    sort: activity <to sort discussion topics, use one of the following:>
+        activity – last_activity_date
+        creation – creation_date
+        votes – score
+[JSON outputs]ls
 
 ## Github
     > mode: all <parsing mode, one of following:>
