@@ -1,11 +1,11 @@
 ## CodeTalent CrawlerBot for websites
 
 ### To launch spiders directly in CLI
-    scrapy -a <arguments> <spidername>
+    scrapy -a <arguments> <spider name>
 
 On this page:
 
-* [Spiders]
+* Crawlers
     * [StackOverflow](https://bitbucket.org/codetalent/gitcrawl/overview#markdown-header-stackoverflow)
     * [Github](https://bitbucket.org/codetalent/gitcrawl/overview#markdown-header-Github)
     * [Geeklist](https://bitbucket.org/codetalent/gitcrawl/overview#markdown-header-Geeklist)
@@ -13,32 +13,32 @@ On this page:
 
 ## StackOverflow
     target: <stackoverflow user display name>
-    size: 30 <int, maxinum # of questions/answers to fetch>
-    sort: activity <to sort discussion topics, use one of the following:>
+    size: 30 <int, maximum # of questions/answers to fetch>
+    sort: activity <the order to sort discussion topics>
         activity – last_activity_date
         creation – creation_date
         votes – score
-[JSON outputs]ls
+[JSON output](src/master/docs/output/stack.json)
+[JSON output documentation](src/master/docs/output/github.json)
 
 ## Github
-    > mode: all <parsing mode, one of following:>
-    > > all
-    > > user
-    > > gist
-    > > repo
-    > target: <github username>
-[JSON outputs explained][github]
+    mode: all <parsing mode, one of following:>
+        all
+        user
+        gist
+        repo
+    target: <github username>
+[JSON output](src/master/docs/output/github.json)
+[JSON output documentation](src/master/docs/output/github.md)
 
 ## Facebook
 ### This spider can't work on it's own, Needs to 'feed' cookies for authorization
-    [JSON outputs explained][facebook]
+[JSON output](src/master/docs/output/facebook.json)
+[JSON output](src/master/docs/output/facebook.md)
+
 
 ## Geeklist
-    > Uses OAuth 1 Authorization
-    > > target: <geeklist username>
-[JSON outputs explained][github]
-
-[stackoverflow]: http://pygments.org/docs/lexers/
-[github]: 
-[facebook]: 
-[geeklist]: 
+Uses OAuth 1 Authorization
+    target: <geeklist username>
+[JSON outputs](src/master/docs/output/geeklist.json)
+[JSON outputs documentation](src/master/docs/output/geeklist.md)
