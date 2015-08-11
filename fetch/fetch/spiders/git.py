@@ -10,11 +10,12 @@ class GitSpider(scrapy.Spider):
     http_pass = '4e4b57cc169d0e7a6812f73a9a48843b84a2200b'
 
     def __init__(self, *args, **kwargs):
-        super(GitSpider2, self).__init__(*args, **kwargs)
+        super(GitSpider, self).__init__(*args, **kwargs)
         self.mode = kwargs.get('mode', 'all')
         self.target = kwargs.get('target', '')
 
-    def callnext(self, response=None, caller=None, html=False, start_meta=None):
+    def callnext(self, response=None, caller=None,
+                 html=False, start_meta=None):
         # trick to override the default parsing method :D
         try:
             meta = response.request.meta
@@ -30,7 +31,7 @@ class GitSpider(scrapy.Spider):
                 if url is not None:
                     callstack.append({
                         'url': url, 'callback': caller
-                        })
+                    })
 
         if len(callstack) > 0:
             target = callstack.pop(0)
@@ -100,7 +101,7 @@ class GitSpider(scrapy.Spider):
             for i in url_dict.itervalues():
                 actions.append({
                     'url': i[0], 'callback': i[1]
-                    })
+                })
 
         elif i in url_dict:
             for i in url_dict.iteritems():
@@ -108,13 +109,134 @@ class GitSpider(scrapy.Spider):
                     detail = i[1]
                     actions.append({
                         'url': detail[0], 'callback': detail[1]
-                        })
+                    })
         else:
             raise Exception('Parsing mode invalid.')
         return actions
 # ----------------------------------------------------------------
 # Start declaring methods to parse JSON items.
 # ----------------------------------------------------------------
+
+    def parse_mini_repo(self, input):
+        result = {
+            'id': input.get('id'),
+            'name': input.get('name')
+        }
+        return result
+
+# ------- functions for parsing events.
+    def parse_milestone(self, input):
+        creator = input.get('creator')
+        creator_info = self.parse_mini_user(creator)
+        result = {
+            'title': input.get('title'),
+            'description': input.get('description'),
+            'open_issues': input.get('open_issues'),
+            'closed_issues': input.get('closed_issues'),
+            'state': input.get('state'),
+            'created_at': input.get('created_at'),
+            'updated_at': input.get('updated_at'),
+            'creator': creator_info
+        }
+        return result
+
+    def parse_issue_label(self, input):
+        result = {
+            'name': input.get('name'),
+            'color': input.get('color')
+        }
+        return result
+
+    def parse_event_payload_issue(self, input):
+
+        user = input.get('user')
+        if user:
+            user_info = self.parse_mini_user(user)
+        assignee = input.get('assignee')
+        if assignee:
+            assignee_info = self.parse_mini_user(assignee)
+        labels = input.get('labels')
+        if labels:
+            for i in labels:
+                labels_info = self.parse_issue_label(i)
+
+        result = {
+            'created_at': input.get('created_at'),
+            'updated_at': input.get('updated_at'),
+            'closed_at': input.get('closed_at'),
+            'comments': input.get('comments'),
+            'id': input.get('id'),
+            'number': input.get('number'),
+            'title': input.get('title'),
+            'body': input.get('body'),
+            'action': input.get('action'),
+            'labels': labels_info,
+            'assignee': assignee_info,
+            'user': user_info,
+        }
+        return result
+
+    def parse_push_commits(self, input):
+        result = {
+            'sha': input.get('sha'),
+            'author': input.get('author'),
+            'message': input.get('message'),
+            'distinct': input.get('distinct'),
+            'url': input.get('url')
+        }
+        return result
+
+    def parse_event_payload_push(self, input):
+        commits = input.get('commits')
+        commits_list = []
+        for i in commits:
+            info = self.parse_push_commits(i)
+            commits_list.append(info)
+
+        result = {
+            'push_id': input.get('push_id'),
+            'size': input.get('size'),
+            'disinct_size': input.get('disinct_size'),
+            'ref': input.get('ref'),
+            'head_after': input.get('head'),
+            'head_before': input.get('before'),
+            'commits': commits_list,
+            'created_at': input.get('created_at')
+        }
+        return result
+
+    def parse_event(self, input):
+
+        event_type = input['type']
+        payload = input['payload']
+        if event_type == 'PushEvent':
+            payload_info = self.parse_event_payload_push(payload)
+        elif event_type == 'IssuesEvent':
+            payload_info = self.parse_event_payload_issue(payload)
+
+        repo = input['repo']
+        repo_info = self.parse_mini_user(repo)
+        actor = input['actor']
+        actor_info = self.parse_mini_user(actor)
+
+        org = input.get('org')
+        if org:
+            org_info = self.parse_mini_user(org)
+        else:
+            org_info = None
+
+        result = {
+            'id': input['id'],
+            'type': event_type,
+            'created_at': input['created_at'],
+            'repo': repo_info,
+            'org': org_info,
+            'payload': payload_info,
+            'actor': actor_info
+        }
+        return result
+
+# ------- functions for parsing events.
 
     def parse_user(self, input):
         item = {
@@ -219,7 +341,7 @@ class GitSpider(scrapy.Spider):
         extras_url = {
             'stargazers_url': input['stargazers_url'],
             'contributors_url': input['contributors_url']
-            }
+        }
 
         repo = {
             'id': input['id'],
@@ -250,7 +372,7 @@ class GitSpider(scrapy.Spider):
             owner_info = self.parse_mini_user(owner)
             repo.update({
                 owner: owner_info
-                })
+            })
         result = [repo, status]
         return result
 # ----------------------------------------------------------------
@@ -273,27 +395,44 @@ class GitSpider(scrapy.Spider):
         following_count = user_item['user_following_count']
         url = user_item['user_url']
 
-        html_userpage_followers_url = html_url + '/followers'
-        html_userpage_following_url = html_url + '/following'
-        html_userpage_js_url = html_url + '?tab=contributions&from=2013-01-08&_pjax=.js-contribution-activity'
+        html_followers = html_url + '/followers'
+        html_following = html_url + '/following'
+        html_userpage_js = (
+            html_url + '?tab=contributions&from=2013-01-08'
+            '&_pjax=.js-contribution-activity')
+
         followers_url = url + '/followers'
         following_url = url + '/following'
         starred_url = url + '/starred'
-        # events_url = response.url + '/events'
+        events_url = url + '/events'
 
         actions = []
         if followers_count > 0:
             actions.extend([
-                {'url': followers_url, 'callback': self.crawl_user_fellows},
-                {'url': html_userpage_followers_url, 'callback': self.crawl_html_user_fellow}])
+                {
+                    'url': followers_url,
+                    'callback': self.crawl_user_fellows
+                },
+                {
+                    'url': html_followers,
+                    'callback': self.crawl_html_user_fellow
+                }])
+
         if following_count > 0:
             actions.extend([
-                {'url': following_url, 'callback': self.crawl_user_fellows},
-                {'url': html_userpage_following_url, 'callback': self.crawl_html_user_fellow}])
+                {
+                    'url': following_url,
+                    'callback': self.crawl_user_fellows
+                },
+                {
+                    'url': html_following,
+                    'callback': self.crawl_html_user_fellow
+                }])
 
         actions.extend([
             {'url': starred_url, 'callback': self.crawl_user_starred},
-            {'url': html_userpage_js_url, 'callback': self.crawl_html_userpage_js}])
+            {'url': html_userpage_js, 'callback': self.crawl_html_userpage_js},
+            {'url': events_url, 'callback': self.crawl_user_events}])
         callstack.extend(actions)
 
         return self.callnext(response)
@@ -308,7 +447,7 @@ class GitSpider(scrapy.Spider):
             'user_last_year_contributes': contrib_number[0],
             'user_longest_streak': contrib_number[1],
             'user_current_streak': contrib_number[2],
-            })
+        })
 
         return self.callnext(response)
 
@@ -328,23 +467,27 @@ class GitSpider(scrapy.Spider):
         name_list = response.selector.xpath(
             '//h3[@class="follow-list-name"]/span/a/text()').extract()
         info_list = response.selector.xpath(
-            '//p[@class="follow-list-info"]/descendant-or-self::text()').extract()
+            '//p[@class="follow-list-info"]/descendant-or-self::text()'
+            ).extract()
         info_list = [name for name in info_list if name.strip()]
 
         for i in range(0, len(name_list)):
             username = response.selector.xpath(
-                '//h3[@class="follow-list-name"]/span/a/@href').extract()[i][1:]
+                '//h3[@class="follow-list-name"]/span/a/@href'
+                ).extract()[i][1:]
             user = filter(lambda x: x['user_login'] == username, items)[0]
             user.update({
                 'user_display_name': name_list[i],
                 'user_info': info_list[i],
             })
         html_pagination = response.selector.xpath(
-            '//div[@class="pagination"]/a[text()[contains(.,"Next")]]/@href').extract()
+            '//div[@class="pagination"]/a[text()[contains(.,"Next")]]/@href'
+            ).extract()
+
         if len(html_pagination) > 0:
-            callstack.insert(
-                0,
-                {'url': html_pagination[0], 'callback': self.crawl_html_user_fellow})
+            callstack.append({
+                'url': html_pagination[0],
+                'callback': self.crawl_html_user_fellow})
 
         return self.callnext(response, html=True)
 
@@ -388,7 +531,7 @@ class GitSpider(scrapy.Spider):
                 url = gist[1]
                 callstack.insert(0, {
                     'url': url, 'callback': self.crawl_user_gists_comments
-                    })
+                })
             items.append(gist[0])
         return self.callnext(response, caller=self.crawl_user_gist)
 
@@ -446,7 +589,7 @@ class GitSpider(scrapy.Spider):
             status = result[1]
             items.update({
                 repo_name: repo_info
-                })
+            })
             action = []
             for i in status:
                 if 'forked' == True:
@@ -454,30 +597,30 @@ class GitSpider(scrapy.Spider):
                     action.append({
                         'url': repo_url,
                         'callback': self.crawl_repo_detail
-                        })
+                    })
                 if 'starred' == True:
                     stargazer_url = repo_extra_url.get('stargazers_url')
                     action.append({
                         'url': stargazer_url,
                         'callback': self.crawl_repo_stars
-                        })
+                    })
                 if 'forks' == True:
                     forks_url = repo_info.get('forks_url')
                     action.append({
                         'url': forks_url,
                         'callback': self.crawl_repo_forks
-                        })
+                    })
                 if 'open_issues' == True:
                     issues_url = repo_info.get('url') + '/issues'
                     action.append({
                         'url': issues_url,
                         'callback': self.crawl_repo_issues
-                        })
+                    })
             contributors_url = repo_extra_url.get('contributors_url')
             action.append({
                 'url': contributors_url,
                 'callback': self.crawl_repo_contributors
-                })
+            })
             callstack.extend(action)
 
         return self.callnext(response, caller=self.crawl_user_repo)
@@ -554,3 +697,19 @@ class GitSpider(scrapy.Spider):
             item.append(result)
 
         return self.callnext(response, caller=self.crawl_repo_stars)
+
+    def crawl_user_events(self, response):
+
+        jr = json.loads(response.body_as_unicode())
+        loader = response.meta['Loader']
+        items = loader['UserInfo']['user_events']
+
+        allowed = ['PushEvent', 'IssuesEvent']
+
+        for i in jr:
+            event_type = i['type']
+            if event_type in allowed:
+                event = self.parse_event(i)
+                items.append(event)
+
+        return self.callnext(response)
