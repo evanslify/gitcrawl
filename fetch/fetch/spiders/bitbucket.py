@@ -7,6 +7,7 @@ from fetch.items import BitbucketItem
 class BitbucketSpider(scrapy.Spider):
     name = "bitbucket"
     allowed_domains = ['bitbucket.org']
+    handle_httpstatus_list = [404]
     http_user = 'ctbotter'
     http_pass = 'zgXFKqEHHKed'
 
@@ -27,10 +28,10 @@ class BitbucketSpider(scrapy.Spider):
             if page_turn_url is not None:
                 meta['callstack'].append(
                     {'url': page_turn_url, 'callback': caller})
-
         # old callnext from gitspider, now combined with page turning.
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
+
             url = target['url']
             if 'pagelen=' not in url:
                 url = url + '?pagelen=100'
@@ -175,16 +176,23 @@ class BitbucketSpider(scrapy.Spider):
         jr = json.loads(response.body_as_unicode())
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
-        loader['UserInfo'] = self.parse_user_object(jr, extra_field=True)
+        if jr.get('error') is not None:
+            team_error = 'is a team account'
+            if jr['error']['message'].endswith(team_error):
+                url = response.url.replace('users', 'teams')
+                callstack.append({
+                    'url': url, 'callback': self.crawl_user})
+        else:
+            loader['UserInfo'] = self.parse_user_object(jr, extra_field=True)
 
-        links = jr['links']
-        followers_url = links['followers']['href']
-        following_url = links['following']['href']
+            links = jr['links']
+            followers_url = links['followers']['href']
+            following_url = links['following']['href']
 
-        callstack.extend([
-            {'url': followers_url, 'callback': self.crawl_user_followers},
-            {'url': following_url, 'callback': self.crawl_user_following}
-            ])
+            callstack.extend([
+                {'url': followers_url, 'callback': self.crawl_user_followers},
+                {'url': following_url, 'callback': self.crawl_user_following}
+                ])
 
         return self.callnext(response)
 
@@ -217,7 +225,7 @@ class BitbucketSpider(scrapy.Spider):
             repo_name = response.url.split('/')[-2]
             target = items[repo_name]
             for i in body:
-                fork_info = self.parse_repo_object(parsing_fork=True)
+                fork_info = self.parse_repo_object(i, parsing_fork=True)
                 target['forks'].append(fork_info)
         return self.callnext(
             response, body=jr, caller=self.crawl_repo_forks)

@@ -51,12 +51,12 @@ class RedisPipeline(object):
         else:
             raise Exception('%s is not found in redispipeline\'s db table.') % spider_name
 
-    def process_item(self, item, spider):
-        # delete empty keys in items.
-        item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
-        epoch = int(time.time())
+    # def process_item(self, item, spider):
+    #     # delete empty keys in items.
+    #     item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
+    #     epoch = int(time.time())
 
-        user_id = item.pop('identifier')
+    #     user_id = item.pop('identifier')
 
-        self.r.sadd('index', user_id)
-        self.r.hset(user_id, epoch, item)
+    #     self.r.sadd('index', user_id)
+    #     self.r.hset(user_id, epoch, item)
