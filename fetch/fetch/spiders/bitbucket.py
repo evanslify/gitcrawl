@@ -1,235 +1,251 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import json
-import re
 from fetch.items import BitbucketItem
 
 
 class BitbucketSpider(scrapy.Spider):
     name = "bitbucket"
-    allowed_domains = ['bitbucket.org', 'localhost']
-    start_urls = ['http://localhost/']
-    handle_httpstatus_list = [404, 403]
+    allowed_domains = ['bitbucket.org']
     http_user = 'ctbotter'
     http_pass = 'zgXFKqEHHKed'
 
     def __init__(self, *args, **kwargs):
         super(BitbucketSpider, self).__init__(*args, **kwargs)
-        self.parsing_mode = kwargs.get('mode', 'all').split(',')
-        self.target_login = kwargs.get('target', '').split(',').pop(0)
-        self.baseurl = 'https://api.bitbucket.org/2.0/'
-
-        valid_parsing_mode = ['all', 'user', 'repo']
-        for i in self.parsing_mode:
-            if i not in valid_parsing_mode:
-                raise Exception('Invalid parsing mode.')
+        self.mode = kwargs.get('mode', 'all').split(',')
+        self.target = kwargs.get('target', '')
 
     def callnext(self, response, body=None, caller=None):
-        meta = response.request.meta
+
+        try:
+            meta = response.request.meta
+        except AttributeError:
+            meta = response
+
         if body is not None:
-            page_turn_url = body.get('next', None)
+            page_turn_url = body.get('next')
             if page_turn_url is not None:
-                meta['callstack'].insert(
-                    0,
+                meta['callstack'].append(
                     {'url': page_turn_url, 'callback': caller})
+
         # old callnext from gitspider, now combined with page turning.
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
+            url = target['url']
+            if 'pagelen=' not in url:
+                url = url + '?pagelen=100'
             yield scrapy.Request(
-                url=target['url'], meta=meta,
+                url=url, meta=meta,
                 callback=target['callback'], errback=self.callnext)
         else:
             items = BitbucketItem()
             loader = response.meta.get('Loader')
             items['RepoInfo'] = loader['RepoInfo']
             items['UserInfo'] = loader['UserInfo']
+            items['identifier'] = loader['identifier']
             yield items
 
-    def parse(self, response):
+# ------------
+# Parsing methods starts here.
+# ------------
+    def parse_user_object(self, input, extra_field=False):
+        result = {
+            'login': input.get('username'),
+            'website': input.get('website'),
+            'display_name': input.get('display_name'),
+            'uuid': input.get('uuid')[1:-1],
+            'created_on': input.get('created_on'),
+            'location': input.get('location'),
+            'type': input['type']
+        }
+        if extra_field:
+            result.update({
+                'followers': [],
+                'following': [],
+                })
+        return result
 
-        response.meta.update({
+    def parse_mini_user_object(self, input):
+        result = {
+            'login': input['username'],
+            'display_name': input['display_name'],
+            'type': input['type'],
+            'uuid': input['uuid']
+        }
+        return result
+
+    def parse_repo_object(self, input, parsing_fork=False):
+        links = input['links']
+        is_fork = True if input.get('parent') is not None else False
+
+        result = {
+            'has_wiki': input['has_wiki'],
+            'name': input['name'],
+            'uuid': input['uuid'][1:-1],
+            'language': input['language'],
+            'created_on': input['created_on'],
+            'updated_on': input['updated_on'],
+            'description': input['description'],
+            'clone_url': links['clone'],
+            'zipurl': links['html']['href'] + 'get/tip.zip',
+            'is_fork': is_fork,
+            'has_issues': input['has_issues'],
+            'full_name': input['full_name'],
+            'forks': [],
+        }
+
+        links = {
+            'fork': links['forks']['href']
+        }
+
+        if is_fork:
+            parent = input['parent']
+            full_name = parent['full_name']
+            parent_info = {
+                'repo_name': parent['name'],
+                'full_name': full_name,
+                'login': full_name.split('/')[-2],
+                'uuid': parent['uuid']
+            }
+            result['parent'] = parent_info
+
+        if parsing_fork:
+            owner = input['owner']
+            owner_info = self.parse_mini_user_object(owner)
+            result['owner'] = owner_info
+
+        result_list = [result, links]
+        return result_list
+
+# ------------
+# Parsing methods stops here.
+# ------------
+
+    def start_requests(self):
+        # trick to override default parse method :D
+
+        meta = scrapy.Request.meta
+        meta = {
             'callstack': [],
-            'Loader': {},
-        })
+            'Loader': {
+                'RepoInfo': {},
+                'UserInfo': {},
+                'identifier': self.target,
+            }
+        }
+        callstack = meta['callstack']
+        calls = self.parse_arguments()
+        callstack.extend(calls)
+        return self.callnext(response=meta)
 
-        callstack = response.meta['callstack']
-        loader = response.meta['Loader']
+    def parse_arguments(self):
+        # returns a list, generated by parsing start arguments
+        # which can be extended into callstack
+        # raises exception while mode is invalid
 
-        loader['UserInfo'] = {}
-        loader['RepoInfo'] = []
+        actions = []
+        base_url = 'https://api.bitbucket.org/2.0'
+        target = self.target
+        user_url = base_url + '/users/%s' % target
+        repo_url = base_url + '/repositories/%s' % target
 
-        current_target_login = self.target_login
-        user_start_url = self.baseurl + 'users/' + current_target_login
-        repo_start_url = self.baseurl + 'repositories/' + \
-            current_target_login + '?pagelen=100'
+        url_dict = {
+            'user': (user_url, self.crawl_user),
+            'repo': (repo_url, self.crawl_repo)
+        }
 
-        if 'all' in self.parsing_mode:
-            callstack.extend([
-                {'url': user_start_url, 'callback': self.parse_user},
-                {'url': repo_start_url, 'callback': self.parse_repo}]),
+        if 'all' in self.mode:
+            for i in url_dict.itervalues():
+                actions.append({
+                    'url': i[0], 'callback': i[1]
+                })
         else:
-            for arg_mode in self.parsing_mode:
-                if arg_mode == 'repo':
-                    callstack.append(
-                        {'url': repo_start_url, 'callback': self.parse_repo})
-                elif arg_mode == 'user':
-                    callstack.append(
-                        {'url': user_start_url, 'callback': self.parse_user})
-        return self.callnext(response)
+            for i in self.mode:
+                if i in url_dict.iterkeys():
+                    detail = url_dict[i]
+                    actions.append({
+                        'url': detail[0], 'callback': detail[1]
+                    })
+                else:
+                    raise Exception('Parsing mode invalid.')
+        return actions
 
-    def parse_user(self, response):
+    def crawl_user(self, response):
 
         jr = json.loads(response.body_as_unicode())
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
-        items = loader['UserInfo']
-        loader['identifier'] = jr.ger('uuid')
+        loader['UserInfo'] = self.parse_user_object(jr, extra_field=True)
 
-        items.update({
-            'user_login': jr.get('username'),
-            'user_website': jr.get('website'),
-            'user_display_name': jr.get('display_name'),
-            'user_id': jr.get('uuid')[1:-1],
-            'user_created_on': jr.get('created_on'),
-            'user_location': jr.get('location'),
-            'user_followers': [],
-            'user_following': [],
-        })
-
-        user_links = jr.get('links')
-        user_followers_url = user_links.get(
-            'followers').get('href') + '?pagelen=100'
-        user_following_url = user_links.get(
-            'following').get('href') + '?pagelen=100'
+        links = jr['links']
+        followers_url = links['followers']['href']
+        following_url = links['following']['href']
 
         callstack.extend([
-            {'url': user_followers_url, 'callback': self.parse_user_followers},
-            {'url': user_following_url, 'callback': self.parse_user_following}
+            {'url': followers_url, 'callback': self.crawl_user_followers},
+            {'url': following_url, 'callback': self.crawl_user_following}
             ])
 
         return self.callnext(response)
 
-    def parse_repo(self, response):
+    def crawl_repo(self, response):
 
         jr = json.loads(response.body_as_unicode())
         callstack = response.meta['callstack']
         loader = response.meta['Loader']
         items = loader['RepoInfo']
-        useritem = loader['UserInfo']
-
-        if jr.get('size') > 0:
-            for i in jr.get('values'):
-                repo = {}
-                repo_is_fork = True if i.get('parent') is not None else False
-                repo.update({
-                    'repo_has_wiki': i.get('has_wiki'),
-                    'repo_name': i.get('name'),
-                    'repo_id': i.get('uuid')[1:-1],
-                    'repo_language': i.get('language'),
-                    'repo_created_on': i.get('created_on'),
-                    'repo_updated_on': i.get('updated_on'),
-                    'repo_description': i.get('description'),
-                    'repo_clone_url': i.get(
-                        'links').get('clone')[1].get('href'),
-                    'repo_zipurl': i.get(
-                        'links').get('html').get('href') + 'get/tip.zip',
-                    'repo_is_fork': repo_is_fork,
-                    'repo_has_issues': i.get('has_issues'),
-                    'repo_full_name': i.get('full_name'),
-                    'repo_forks': [],
-                })
-
-                if repo_is_fork:
-                    repo_parent = i.get('parent')
-                    repo_parent_full_name = i.get('full_name')
-                    repo_parent_login = re.findall(
-                        '(.*?)(?=/)', i.get('full_name'))[0]
-                    repo.update({
-                        'repo_parent_full_name': repo_parent_full_name,
-                        'repo_parent_id': repo_parent.get('uuid')[1:-1],
-                        'repo_parent_login': repo_parent_login
-                    })
-                items.append(repo)
-                fork_url = i.get(
-                    'links').get('forks').get('href') + '?pagelen=100'
+        body = jr['values']
+        if len(body) > 0:
+            for i in body:
+                result = self.parse_repo_object(i)
+                repo_info = result[0]
+                name = repo_info['name'].lower()
+                links = result[1]
+                fork_url = links['fork']
+                items[name] = repo_info
                 callstack.append(
-                    {'url': fork_url, 'callback': self.parse_repo_forks})
+                    {'url': fork_url, 'callback': self.crawl_repo_forks})
+        return self.callnext(response, body=jr, caller=self.crawl_repo)
 
-            # in case of only querying for repositories
-            useritem.update({
-                'user_id': jr.get('values')[0].get('owner').get('uuid')[1:-1]})
-
-            return self.callnext(response, body=jr, caller=self.parse_repo)
-        else:
-            return self.callnext(response)
-
-    def parse_repo_forks(self, response):
+    def crawl_repo_forks(self, response):
 
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
         items = loader['RepoInfo']
-        full_name = re.findall(
-            '(?<=repositories/)(.*?)(?=/forks)', response.url)[0]
-        if jr.get('size') > 0:
-            target_repo = filter(
-                lambda x: x['repo_full_name'] == full_name, items)[0]
-            all_forks = jr.get('values')
+        body = jr['values']
+        if len(body) > 0:
+            repo_name = response.url.split('/')[-2]
+            target = items[repo_name]
+            for i in body:
+                fork_info = self.parse_repo_object(parsing_fork=True)
+                target['forks'].append(fork_info)
+        return self.callnext(
+            response, body=jr, caller=self.crawl_repo_forks)
 
-            for i in all_forks:
-                target_repo['repo_forks'].append({
-                    'repo_fork_name': i.get('name'),
-                    'repo_fork_id': i.get('uuid')[1:-1],
-                    'repo_fork_created_on': i.get('created_on'),
-                    'repo_fork_full_name': i.get('full_name'),
-                    'repo_fork_has_issues': i.get('has_issues'),
-                    'repo_fork_updated_on': i.get('updated_on'),
-                    'repo_fork_description': i.get('description')
-                })
-            return self.callnext(
-                response, body=jr, caller=self.parse_repo_forks)
-        else:
-            return self.callnext(response)
-
-    def parse_user_followers(self, response):
+    def crawl_user_followers(self, response):
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
         items = loader['UserInfo']
 
-        followers_list = items.get('user_followers')
-        body = jr.get('values')
+        body = jr['values']
         if len(body) > 0:
+            body = jr['values']
             for i in body:
-                followers_list.append({
-                    'user_followers_login': i.get('username'),
-                    'user_followers_website': i.get('website'),
-                    'user_followers_display_name': i.get('display_name'),
-                    'user_followers_id': i.get('uuid')[1:-1],
-                    'user_followers_created_on': i.get('created_on'),
-                    'user_followers_location': i.get('location'),
-                })
-            return self.callnext(
-                response, body=jr, caller=self.parse_user_followers)
-        else:
-            return self.callnext(response)
+                info = self.parse_user_object(i)
+                items['followers'].append(info)
+        return self.callnext(
+            response, body=jr, caller=self.crawl_user_followers)
 
-    def parse_user_following(self, response):
+    def crawl_user_following(self, response):
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
         items = loader['UserInfo']
 
-        following_list = items.get('user_following')
-        body = jr.get('values')
+        body = jr['values']
         if len(body) > 0:
+            body = jr['values']
             for i in body:
-                following_list.append({
-                    'user_following_login': i.get('username'),
-                    'user_following_website': i.get('website'),
-                    'user_following_display_name': i.get('display_name'),
-                    'user_following_id': i.get('uuid')[1:-1],
-                    'user_following_created_on': i.get('created_on'),
-                    'user_following_location': i.get('location'),
-                })
-            return self.callnext(
-                response, body=jr, caller=self.parse_user_following)
-        else:
-            return self.callnext(response)
+                info = self.parse_user_object(i)
+                items['following'].append(info)
+        return self.callnext(
+            response, body=jr, caller=self.crawl_user_following)

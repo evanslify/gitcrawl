@@ -11,7 +11,7 @@ class GitSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(GitSpider, self).__init__(*args, **kwargs)
-        self.mode = kwargs.get('mode', 'all')
+        self.mode = kwargs.get('mode', 'all').split(',')
         self.target = kwargs.get('target', '')
 
     def callnext(self, response=None, caller=None,
@@ -97,21 +97,20 @@ class GitSpider(scrapy.Spider):
             'gist': (gist_url, self.crawl_user_gist),
             'repo': (repo_url, self.crawl_user_repo)
         }
-        if self.mode == 'all':
+        if 'all' in self.mode:
             for i in url_dict.itervalues():
                 actions.append({
                     'url': i[0], 'callback': i[1]
                 })
-
-        elif i in url_dict:
-            for i in url_dict.iteritems():
-                if self.mode in i:
-                    detail = i[1]
+        else:
+            for i in self.mode:
+                if i in url_dict.iterkeys():
+                    detail = url_dict[i]
                     actions.append({
                         'url': detail[0], 'callback': detail[1]
                     })
-        else:
-            raise Exception('Parsing mode invalid.')
+                else:
+                    raise Exception('Parsing mode invalid.')
         return actions
 # ----------------------------------------------------------------
 # Start declaring methods to parse JSON items.

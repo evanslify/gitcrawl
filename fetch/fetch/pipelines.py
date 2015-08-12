@@ -32,21 +32,24 @@ class RedisPipeline(object):
             )
 
     def open_spider(self, spider):
-        if 'github' in getattr(spider, 'name'):
-            self.connection_pool_github = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=3, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_github)
-        if 'bitbucket' in getattr(spider, 'name'):
-            self.connection_pool_bitbucket = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=4, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_bitbucket)
-        if 'geeklist' in getattr(spider, 'name'):
-            self.connection_pool_geeklist = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=5, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_geeklist)
-        if 'facebook' in getattr(spider, 'name'):
-            self.connection_pool_facebook = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=6, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_facebook)
-        if 'stackoverflow' in getattr(spider, 'name'):
-            self.connection_pool_stackoverflow = redis.ConnectionPool(host=self.redis_uri, port=self.redis_port, db=7, password=self.redis_auth)
-            self.r = redis.StrictRedis(connection_pool=self.connection_pool_stackoverflow)
+
+        db_dict = {
+            'github': 3,
+            'bitbucket': 4,
+            'geeklist': 5,
+            'facebook': 6,
+            'stackoverflow': 7
+        }
+
+        spider_name = getattr(spider, 'name')
+        if spider_name in db_dict.iterkeys():
+            db = db_dict[spider_name]
+            self.pool = redis.ConnectionPool(
+                    host=self.redis_uri, port=self.redis_port,
+                    db=db, password=self.redis_auth)
+            self.r = redis.StrictRedis(connection_pool=self.pool)
+        else:
+            raise Exception('%s is not found in redispipeline\'s db table.') % spider_name
 
     def process_item(self, item, spider):
         # delete empty keys in items.
