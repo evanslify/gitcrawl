@@ -32,7 +32,9 @@ class RedisPipeline(object):
             )
 
     def open_spider(self, spider):
+        pass
 
+    def connect_redis_storage(self, spider):
         db_dict = {
             'github': 3,
             'bitbucket': 4,
@@ -50,8 +52,13 @@ class RedisPipeline(object):
             self.r = redis.StrictRedis(connection_pool=self.pool)
         else:
             raise Exception('%s is not found in redispipeline\'s db table.') % spider_name
+        return
 
     def process_item(self, item, spider):
+
+        # connect to redis first.
+        self.connect_redis_storage(spider)
+
         # delete empty keys in items.
         item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
         epoch = int(time.time())
@@ -60,3 +67,4 @@ class RedisPipeline(object):
 
         self.r.sadd('index', user_id)
         self.r.hset(user_id, epoch, item)
+        return item

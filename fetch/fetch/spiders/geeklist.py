@@ -67,6 +67,7 @@ class GeeklistSpider(scrapy.Spider):
             items = GeeklistItem()
             loader = response.meta.get('Loader')
             items['UserInfo'] = loader['UserInfo']
+            items['identifier'] = loader['identifier']
             yield items
 
     def start_requests(self):
@@ -76,8 +77,10 @@ class GeeklistSpider(scrapy.Spider):
         meta = scrapy.Request.meta
         meta = {
             'callstack': [],
-            'Loader': {}
-            }
+            'Loader': {
+                'identifier': self.target
+            },
+        }
         callstack = meta['callstack']
 
         # start generating dict of urls

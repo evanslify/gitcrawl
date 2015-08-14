@@ -3,15 +3,24 @@ import scrapy
 import json
 from scrapy import Selector
 from fetch.items import FacebookItem
+from scrapy.utils.project import get_project_settings
+import redis
 
 
 class FacebookSpider(scrapy.Spider):
 
     name = 'facebook'
-    start_urls = ['http://52.68.90.91/cookiez.json']
 
-    def callnext(self, response, cookies=None):
-        meta = response.request.meta
+    def __init__(self, *args, **kwargs):
+        super(FacebookSpider, self).__init__(*args, **kwargs)
+        self.target = kwargs.get('target')
+
+    def callnext(self, response, cookies=None, start_meta=None):
+
+        try:
+            meta = response.request.meta
+        except AttributeError:
+            meta = start_meta
         headers = {
             'Host': 'm.facebook.com',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:39.0) Gecko/20100101 Firefox/39.0',
@@ -30,29 +39,53 @@ class FacebookSpider(scrapy.Spider):
         else:
             items = FacebookItem()
             loader = response.meta.get('Loader')
-            items['UserInfo'] = loader['UserInfo']
+            items['identifier'] = loader['identifier']
             items['FacebookInfo'] = loader['FacebookInfo']
             yield items
 
-    def parse(self, response):
-        # go to somewhere and fetch cookiez.
-        # init data before parsing
-        response.meta.update({
+    def start_requests(self):
+        # override scrapy's own method to start requests.
+        meta = scrapy.Request.meta
+        # declaring item loader's layout.
+        meta = {
             'callstack': [],
-            'Loader': {},
-            })
-        callstack = response.meta['callstack']
-        jr = json.loads(response.body_as_unicode())
-        self.profile_id = jr.get('c_user')
-        # construct profile URL
+            'Loader': {
+                'FacebookInfo': {},
+                'identifier': self.target
+            }
+        }
+        callstack = meta['callstack']
+
+        cookiez = self.get_cookiez()
         profile_url = (
             'https://m.facebook.com/profile.php?'
-            'v=info&id=%s') % self.profile_id
+            'v=info&id=%s') % self.target
 
         callstack.append({
             'url': profile_url, 'callback': self.parse_mobile
             })
-        return self.callnext(response, cookies=jr)
+
+        return self.callnext(start_meta=meta, cookiez=cookiez)
+
+    def get_cookiez(self):
+        # read from redis!
+        settings = get_project_settings()
+        redis_uri = settings.get('REDIS_DB_URI', 'localhost')
+        redis_port = settings.get('REDIS_DB_PORT', 6379)
+        redis_auth = settings.get('REDIS_DB_AUTH', '')
+        redis_db = 0
+        pool = redis.ConnectionPool(
+            host=redis_uri, port=redis_port,
+            db=redis_db, password=redis_auth)
+        r = redis.StrictRedis(connection_pool=pool)
+        cookiez = r.get(self.target)
+        if cookiez is None:
+            error_message = (
+                'No cookies found in DB #%s at %s') % (redis_db, redis_uri)
+            raise Exception(error_message)
+        else:
+            jr = json.loads(cookiez)
+        return jr
 
     def parse_mobile(self, response):
 
