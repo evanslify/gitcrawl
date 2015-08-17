@@ -148,17 +148,6 @@ class GitSpider(scrapy.Spider):
 
     def parse_event_payload_issue(self, input):
 
-        user = input.get('user')
-        if user:
-            user_info = self.parse_mini_user(user)
-        assignee = input.get('assignee')
-        if assignee:
-            assignee_info = self.parse_mini_user(assignee)
-        labels = input.get('labels')
-        if labels:
-            for i in labels:
-                labels_info = self.parse_issue_label(i)
-
         result = {
             'created_at': input.get('created_at'),
             'updated_at': input.get('updated_at'),
@@ -168,11 +157,25 @@ class GitSpider(scrapy.Spider):
             'number': input.get('number'),
             'title': input.get('title'),
             'body': input.get('body'),
-            'action': input.get('action'),
-            'labels': labels_info,
-            'assignee': assignee_info,
-            'user': user_info,
+            'action': input.get('action')
         }
+
+        user = input.get('user')
+        if user:
+            user_info = self.parse_mini_user(user)
+            result['user'] = user_info
+
+        assignee = input.get('assignee')
+        if assignee:
+            assignee_info = self.parse_mini_user(assignee)
+            result['assignee'] = assignee_info
+
+        labels = input.get('labels')
+        if labels:
+            for i in labels:
+                labels_info = self.parse_issue_label(i)
+            result['labels'] = labels_info
+
         return result
 
     def parse_push_commits(self, input):
@@ -255,9 +258,6 @@ class GitSpider(scrapy.Spider):
             'user_following_count': input.get('following'),
             'user_created': input.get('created_at'),
             'user_updated': input.get('updated_at'),
-            'user_following': [],
-            'user_followers': [],
-            'user_events': [],
             'user_url': input.get('url')
         }
         # item = dict((k, v) for k, v in item.iteritems() if v is not None)
@@ -359,11 +359,6 @@ class GitSpider(scrapy.Spider):
             'zipurl': html_url + "/archive/master.zip",
             'url': input['url'],
             'description': input['description'],
-            'forks': [],
-            'contributed_users': [],
-            'times_contributed': '',
-            'stargazers': [],
-            # 'issues': []
             'extras_url': extras_url
         }
         if detailing is True:
@@ -417,6 +412,7 @@ class GitSpider(scrapy.Spider):
                     'callback': self.crawl_html_user_fellow
                 }])
 
+
         if following_count > 0:
             actions.extend([
                 {
@@ -457,9 +453,9 @@ class GitSpider(scrapy.Spider):
         loader = response.meta['Loader']
 
         if 'following' in response.url:
-            items = loader['UserInfo']['user_following']
+            items = loader['UserInfo'].setdefault('user_following', [])
         elif 'followers' in response.url:
-            items = loader['UserInfo']['user_followers']
+            items = loader['UserInfo'].setdefault('user_followers', [])
         else:
             raise Exception
 
@@ -474,11 +470,22 @@ class GitSpider(scrapy.Spider):
             username = response.selector.xpath(
                 '//h3[@class="follow-list-name"]/span/a/@href'
                 ).extract()[i][1:]
-            user = filter(lambda x: x['user_login'] == username, items)[0]
+            # i shall repair thie in a more elegant way.
+            # repaired temporary aug 17 2015
+            # start
+            try:
+                user = filter(lambda x: x['user_login'] == username, items)[0]
+            except IndexError:
+                items.append({
+                    'user_login': username
+                    })
+                user = filter(lambda x: x['user_login'] == username, items)[0]
+
             user.update({
                 'user_display_name': name_list[i],
                 'user_info': info_list[i],
             })
+            # end
         html_pagination = response.selector.xpath(
             '//div[@class="pagination"]/a[text()[contains(.,"Next")]]/@href'
             ).extract()
@@ -504,14 +511,11 @@ class GitSpider(scrapy.Spider):
         else:
             raise Exception
 
-        user_list = items.get(key_name, [])
+        user_list = items.setdefault(key_name, [])
+
         for i in jr:
             user = self.parse_mini_user(i)
             user_list.append(user)
-
-        items.update({
-            key_name: user_list,
-        })
 
         return self.callnext(response, caller=self.crawl_user_fellows)
 
@@ -633,7 +637,7 @@ class GitSpider(scrapy.Spider):
         items = loader['RepoInfo']
 
         repo_name = response.url.split('/')[-2]
-        item = items[repo_name]['forks']
+        item = items[repo_name].setdefault('forks', [])
         jr = json.loads(response.body_as_unicode())
 
         for i in jr:
@@ -647,6 +651,7 @@ class GitSpider(scrapy.Spider):
         loader = response.meta['Loader']
         repo_name = response.url.split('/')[-2]
         item = loader['RepoInfo'][repo_name]
+
         if response.status == 204:
             return self.callnext(response)
         else:
@@ -657,10 +662,10 @@ class GitSpider(scrapy.Spider):
 
         # check whether this repo has contributors
         if times_contributed > 0:
-            users = []
+            contributors = item.setdefault('contributed_users', [])
             for i in jr:
                 result = self.parse_contributor(i)
-                users.append(result)
+                contributors.append(result)
         return self.callnext(response, caller=self.crawl_repo_contributors)
 
     def crawl_repo_detail(self, response):
@@ -688,7 +693,7 @@ class GitSpider(scrapy.Spider):
         # only called while a repository has stargazers.
         loader = response.meta['Loader']
         repo_name = response.url.split('/')[-1]
-        item = loader['RepoInfo'][repo_name]['stargazers']
+        item = loader['RepoInfo'][repo_name].setdefault('stargazers', [])
         jr = json.loads(response.body_as_unicode())
 
         for i in jr:
@@ -701,7 +706,7 @@ class GitSpider(scrapy.Spider):
 
         jr = json.loads(response.body_as_unicode())
         loader = response.meta['Loader']
-        items = loader['UserInfo']['user_events']
+        items = loader['UserInfo'].setdefault('user_events', [])
 
         allowed = ['PushEvent', 'IssuesEvent']
 
@@ -711,4 +716,4 @@ class GitSpider(scrapy.Spider):
                 event = self.parse_event(i)
                 items.append(event)
 
-        return self.callnext(response)
+        return self.callnext(response, caller=self.crawl_user_events)
