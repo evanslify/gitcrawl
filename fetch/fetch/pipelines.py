@@ -40,7 +40,8 @@ class RedisPipeline(object):
             'bitbucket': 4,
             'geeklist': 5,
             'facebook': 6,
-            'stackoverflow': 7
+            'stackoverflow': 7,
+            'leetcode': 8
         }
 
         spider_name = getattr(spider, 'name')
@@ -51,7 +52,9 @@ class RedisPipeline(object):
                     db=db, password=self.redis_auth)
             self.r = redis.StrictRedis(connection_pool=self.pool)
         else:
-            raise Exception('%s is not found in redispipeline\'s db table.') % spider_name
+            db_not_found_error = (
+                '%s is not found in RedisPipeline\'s db table.') % spider_name
+            raise Exception(db_not_found_error)
         return
 
     def process_item(self, item, spider):

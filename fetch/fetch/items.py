@@ -38,5 +38,12 @@ class StackOverflowItem(Item):
     identifier = Field()
 
 
+class LeetCodeItem(Item):
+    UserInfo = Field()
+    QuestionInfo = Field()
+    AnswerInfo = Field()
+    identifier = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()
