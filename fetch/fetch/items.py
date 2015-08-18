@@ -45,5 +45,11 @@ class LeetCodeItem(Item):
     identifier = Field()
 
 
+class slideshareItem(Item):
+    UserInfo = Field()
+    SlideInfo = Field()
+    identifier = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()

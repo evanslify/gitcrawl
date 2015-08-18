@@ -41,7 +41,8 @@ class RedisPipeline(object):
             'geeklist': 5,
             'facebook': 6,
             'stackoverflow': 7,
-            'leetcode': 8
+            'leetcode': 8,
+            'slideshare': 9
         }
 
         spider_name = getattr(spider, 'name')
