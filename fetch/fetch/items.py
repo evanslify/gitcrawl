@@ -51,5 +51,11 @@ class slideshareItem(Item):
     identifier = Field()
 
 
+class SpeakerdeckItems(Item):
+    UserInfo = Field()
+    SlideInfo = Field()
+    identifier = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()
