@@ -123,7 +123,7 @@ class slideshareSpider(scrapy.Spider):
         work = response.xpath(
             '//span[@itemprop="jobTitle"]//text()').extract_first()
         name = response.xpath(
-            '//span[@itemprop="name"]//text()').extract_first()
+            '//h1[@itemprop="name"]//text()').extract_first()
         industry = response.xpath(
             '//span[@title="Industry"]/span[2]/text()').extract_first()
         bio = response.xpath(
