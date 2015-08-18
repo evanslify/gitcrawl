@@ -244,7 +244,7 @@ class LeetcodeSpider(scrapy.Spider):
 
     def parse_topic(self, input):
         title = input.xpath(
-            '//span[@class="entry-title"]/text()').extract()
+            '//span[@class="entry-title"]/text()').extract_first()
         question_item = input.xpath(
             '//div[contains(@class, "hentry question")]')
         question = self.parse_post(question_item)
