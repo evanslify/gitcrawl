@@ -122,6 +122,8 @@ class slideshareSpider(scrapy.Spider):
         location = self.list_to_str(location_xpath)
         work = response.xpath(
             '//span[@itemprop="jobTitle"]//text()').extract_first()
+        name = response.xpath(
+            '//span[@itemprop="name"]//text()').extract_first()
         industry = response.xpath(
             '//span[@title="Industry"]/span[2]/text()').extract_first()
         bio = response.xpath(
@@ -138,6 +140,7 @@ class slideshareSpider(scrapy.Spider):
             'industery': industry,
             'bio': bio,
             'website': website,
+            'name': name
         }
 
         if social:
