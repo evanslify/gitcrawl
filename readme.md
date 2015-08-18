@@ -18,7 +18,7 @@ On this page:
 * * * 
 
 ## StackOverflow
-* [JSON output](docs/output/stack.json)
+* [JSON output](docs/output/stackoverflow.json)
 * [Documentation](docs/output/stackoverflow.md)
 
 ## Bitbucket
