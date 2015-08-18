@@ -73,6 +73,14 @@ class SpeakerdeckSpider(scrapy.Spider):
 
         return actions
 
+    def list_to_str(self, input):
+
+        result = ''.join(input)
+        return result
+
+    def extract_int(self, input):
+        return int(filter(lambda x: x.isdigit(), input))
+
     def crawl_user(self, response):
 
         callstack = response.meta['callstack']
@@ -153,13 +161,16 @@ class SpeakerdeckSpider(scrapy.Spider):
             'id': id,
         }
 
-        views = response.xpath(
+        views_raw = response.xpath(
             '//li[@class="views"]/span/text()').extract_first()
+        views = self.extract_int(views_raw)
+
         if views:
             result['views'] = views
-        star_counts = response.xpath(
+        star_counts_raw = response.xpath(
             '//li[@class="star signed_out"]//a[@class="stargazers"]/text()'
             ).extract_first()
+        star_counts = self.extract_int(star_counts_raw)
 
         if star_counts:
             result['stargazers'] = []
@@ -208,7 +219,7 @@ class SpeakerdeckSpider(scrapy.Spider):
             result = {
                 'name': name,
                 'login': login,
-                'stars': stars
+                'stars': self.extract_int(stars)
             }
             items['stargazers'].append(result)
 
