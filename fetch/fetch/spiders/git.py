@@ -118,8 +118,8 @@ class GitSpider(scrapy.Spider):
 
     def parse_mini_repo(self, input):
         result = {
-            'id': input.get('id'),
-            'name': input.get('name')
+            'repo_id': input.get('id'),
+            'repo_name': input.get('name')
         }
         return result
 
@@ -153,7 +153,7 @@ class GitSpider(scrapy.Spider):
             'updated_at': input.get('updated_at'),
             'closed_at': input.get('closed_at'),
             'comments': input.get('comments'),
-            'id': input.get('id'),
+            'issue_id': input.get('id'),
             'number': input.get('number'),
             'title': input.get('title'),
             'body': input.get('body'),
@@ -228,7 +228,7 @@ class GitSpider(scrapy.Spider):
             org_info = None
 
         result = {
-            'id': input['id'],
+            'event_id': input['id'],
             'type': event_type,
             'created_at': input['created_at'],
             'repo': repo_info,
