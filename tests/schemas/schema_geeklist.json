@@ -1,0 +1,200 @@
+{
+  "required": [
+    "UserInfo",
+    "identifier"
+  ],
+  "type": "object",
+  "properties": {
+    "identifier": {
+      "type": "string"
+    },
+    "UserInfo": {
+      "required": [
+        "user_bio",
+        "user_blog_link",
+        "user_cards",
+        "user_company",
+        "user_contribs",
+        "user_created_at",
+        "user_email",
+        "user_github",
+        "user_id",
+        "user_location",
+        "user_login",
+        "user_micros",
+        "user_name",
+        "user_social",
+        "user_social_links",
+        "user_stats",
+        "user_trending_at",
+        "user_trending_by"
+      ],
+      "type": "object",
+      "properties": {
+        "user_micros": {
+          "items": [
+            {
+              "required": [
+                "micro_permalink",
+                "micro_slug",
+                "micro_stats",
+                "micro_status",
+                "micro_trending_at",
+                "micro_trending_by",
+                "micro_updated_at",
+                "micro_updated_by",
+                "micro_uuid"
+              ],
+              "type": "object",
+              "properties": {
+                "micro_uuid": {
+                  "type": "string"
+                },
+                "micro_slug": {
+                  "type": "null"
+                },
+                "micro_status": {
+                  "type": "string"
+                },
+                "micro_trending_by": {
+                  "type": "null"
+                },
+                "micro_updated_by": {
+                  "type": "null"
+                },
+                "micro_stats": {
+                  "required": [
+                    "highfives"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "highfives": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "micro_updated_at": {
+                  "type": "string"
+                },
+                "micro_permalink": {
+                  "type": "string"
+                },
+                "micro_trending_at": {
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "type": "array"
+        },
+        "user_created_at": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "user_company": {
+          "type": "null"
+        },
+        "user_social": {
+          "required": [
+            "twitter_followers_count",
+            "twitter_friends_count",
+            "twitter_screen_name",
+            "test"
+          ],
+          "type": "object",
+          "properties": {
+            "twitter_followers_count": {
+              "type": "integer"
+            },
+            "twitter_screen_name": {
+              "type": "string"
+            },
+            "twitter_friends_count": {
+              "type": "integer"
+            }
+          }
+        },
+        "user_login": {
+          "type": "string"
+        },
+        "user_social_links": {
+          "items": [
+            {
+              "type": "string"
+            }
+          ],
+          "type": "array"
+        },
+        "user_location": {
+          "type": "string"
+        },
+        "user_blog_link": {
+          "type": "string"
+        },
+        "user_github": {
+          "required": [
+            "username"
+          ],
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string"
+            }
+          }
+        },
+        "user_cards": {
+          "items": [],
+          "type": "array"
+        },
+        "user_bio": {
+          "type": "null"
+        },
+        "user_trending_at": {
+          "type": "string"
+        },
+        "user_stats": {
+          "required": [
+            "number_of_cards",
+            "number_of_contributions",
+            "number_of_creds",
+            "number_of_highfives",
+            "number_of_mentions"
+          ],
+          "type": "object",
+          "properties": {
+            "number_of_highfives": {
+              "type": "integer"
+            },
+            "number_of_creds": {
+              "type": "integer"
+            },
+            "number_of_contributions": {
+              "type": "integer"
+            },
+            "number_of_cards": {
+              "type": "integer"
+            },
+            "number_of_mentions": {
+              "type": "integer"
+            }
+          }
+        },
+        "user_name": {
+          "type": "string"
+        },
+        "user_trending_by": {
+          "type": "null"
+        },
+        "user_email": {
+          "type": "null"
+        },
+        "user_contribs": {
+          "items": [],
+          "type": "array"
+        }
+      }
+    }
+  }
+}
