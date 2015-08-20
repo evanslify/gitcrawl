@@ -23,6 +23,7 @@ class StackOverflowSpider(scrapy.Spider):
         self.question_filter = (
             ')jxf1*W)HMRItxIKZut.fsS_MratGaN(M0.UccqWSSk2wP_V')
         self.answer_filter = '!--pn9sThVUTv'
+        self.visited_url = []
 
     def callnext(self, response=None, caller=None, start_meta=None):
         try:
@@ -30,12 +31,24 @@ class StackOverflowSpider(scrapy.Spider):
         except AttributeError:
             meta = start_meta
 
-        if len(meta['callstack']) > 0:
-            target = meta['callstack'].pop(0)
+        callstack = meta['callstack']
+
+        if len(callstack) > 0:
+            target = callstack.pop(0)
             url = target['url']
+
+            if url in self.visited_url:
+                # url is visited, trashing this call
+                # fetch the next call.
+                target = callstack.pop(0)
+                url = target['url']
+            else:
+                self.visited_url.append(url)
+
             yield scrapy.Request(
                 url=url, meta=meta,
                 callback=target['callback'], errback=self.callnext)
+
         else:
             items = StackOverflowItem()
             loader = response.meta.get('Loader')

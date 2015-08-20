@@ -10,6 +10,7 @@ class LeetcodeSpider(scrapy.Spider):
         super(LeetcodeSpider, self).__init__(*args, **kwargs)
         self.target = kwargs.get('target')
         self.mode = kwargs.get('mode', 'all').split(',')
+        self.visited_url = []
 
     def callnext(self, response=None, caller=None, start_meta=None):
 
@@ -23,6 +24,15 @@ class LeetcodeSpider(scrapy.Spider):
         if len(callstack) > 0:
             target = callstack.pop(0)
             url = target['url']
+
+            if url in self.visited_url:
+                # url is visited, trashing this call
+                # fetch the next call.
+                target = callstack.pop(0)
+                url = target['url']
+            else:
+                self.visited_url.append(url)
+
             yield scrapy.Request(
                 url=url, meta=meta,
                 callback=target['callback'], errback=self.callnext)
@@ -189,16 +199,16 @@ class LeetcodeSpider(scrapy.Spider):
 
         return result
 
-    def parse_post(self, input):
+    def parse_post(self, input, answer=None):
         content = input.xpath(
             '(div[1]//div[contains(@class, "entry-content")])[1]//*'
-            ).extract()
+        ).extract()
 
         if not content:
             # weird. returns none. fallback.
             content = input.xpath(
                 '(div[1]//div[contains(@class, "entry-content")])//text()'
-                ).extract()
+            ).extract()
         else:
             content = ''.join(content)
 
@@ -206,7 +216,7 @@ class LeetcodeSpider(scrapy.Spider):
             'div[1]//span[contains(@class, "avatar-meta")]')
 
         if not meta_raw:
-            # then it's parsing comment then
+            # means we're parsing comment then
             meta_raw = input.xpath(
                 'div[2]//span[@class="qa-c-item-avatar-meta"]')
             votes_info = None
@@ -231,6 +241,13 @@ class LeetcodeSpider(scrapy.Spider):
             'votes': votes_info
         }
 
+        if answer:
+            # parsing an answer
+            best_answer = input.xpath(
+                'div[1]//div[@class="qa-a-selected"]')
+            if best_answer:
+                result['best_answer'] = True
+
         comment_raw = input.xpath(
             'div[1]//div[@class="qa-c-list-item  hentry comment"]')
         if comment_raw:
@@ -254,7 +271,7 @@ class LeetcodeSpider(scrapy.Spider):
         answer_list = []
         if answer_item:
             for posts in answer_item:
-                answer = self.parse_post(posts)
+                answer = self.parse_post(posts, answer=True)
                 answer_list.append(answer)
 
         result = {
@@ -292,14 +309,14 @@ class LeetcodeSpider(scrapy.Spider):
             for one_url in urls[0]:
                 callstack.append({
                     'url': one_url['url'], 'callback': self.crawl_topic
-                    })
+                })
                 id_list.append(one_url['id'])
 
             if urls[1]:
                 # next page exists
                 callstack.append({
                     'url': urls[1], 'callback': self.crawl_topic_list
-                    })
+                })
         return self.callnext(response)
 
     def crawl_topic(self, response):
