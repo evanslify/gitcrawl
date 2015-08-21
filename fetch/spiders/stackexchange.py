@@ -1,19 +1,11 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import json
-# spider runner
-from scrapy import signals
-from twisted.internet import reactor
-from scrapy.crawler import CrawlerProcess
-from scrapy.utils.project import get_project_settings
-from scrapy.signalmanager import SignalManager
-from multiprocessing import Process
-#
 
 
 class StackExchangeSpider(scrapy.Spider):
     name = "stackexchange"
-    debug = True
+    # debug = True
 
     def __init__(self, *args, **kwargs):
 
@@ -80,4 +72,9 @@ class StackExchangeSpider(scrapy.Spider):
             site_name = self.extract_site_name(item['site_url'])
             container[site_name] = user_id
 
-        return container
+        result = {
+            'StackUserInfo': container,
+            'identifier': self.target
+        }
+
+        return result

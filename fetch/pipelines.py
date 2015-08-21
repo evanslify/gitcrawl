@@ -40,10 +40,11 @@ class RedisPipeline(object):
             'bitbucket': 4,
             'geeklist': 5,
             'facebook': 6,
-            'stackoverflow': 7,
-            'leetcode': 8,
-            'slideshare': 9,
-            'speakerdeck': 10
+            'stackexchange': 7,
+            'stackexchangesites': 8,
+            'leetcode': 9,
+            'slideshare': 10,
+            'speakerdeck': 111
         }
 
         spider_name = getattr(spider, 'name')
@@ -66,7 +67,7 @@ class RedisPipeline(object):
             self.connect_redis_storage(spider)
 
             # delete empty keys in items.
-            item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
+            # item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
             epoch = int(time.time())
 
             user_id = item.pop('identifier')
