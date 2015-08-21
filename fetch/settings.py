@@ -21,7 +21,7 @@ BOT_NAME = 'fetch'
 
 SPIDER_MODULES = ['fetch.spiders']
 NEWSPIDER_MODULE = 'fetch.spiders'
-
+LOG_LEVEL = 'WARNING'
 # LOG_STDOUT = True
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent

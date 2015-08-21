@@ -63,7 +63,7 @@ class BitbucketSpider(scrapy.Spider):
             result.update({
                 'followers': [],
                 'following': [],
-                })
+            })
         return result
 
     def parse_mini_user_object(self, input):
@@ -192,7 +192,7 @@ class BitbucketSpider(scrapy.Spider):
             callstack.extend([
                 {'url': followers_url, 'callback': self.crawl_user_followers},
                 {'url': following_url, 'callback': self.crawl_user_following}
-                ])
+            ])
 
         return self.callnext(response)
 

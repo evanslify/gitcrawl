@@ -361,6 +361,7 @@ class GitSpider(scrapy.Spider):
             'description': input['description'],
             'extras_url': extras_url
         }
+
         if detailing is True:
             owner = input.pop('owner')
             owner_info = self.parse_mini_user(owner)
