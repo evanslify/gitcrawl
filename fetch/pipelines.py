@@ -62,14 +62,16 @@ class RedisPipeline(object):
     def process_item(self, item, spider):
 
         # connect to redis first.
-        self.connect_redis_storage(spider)
+        if not getattr(spider, 'debug', False):
+            self.connect_redis_storage(spider)
 
-        # delete empty keys in items.
-        item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
-        epoch = int(time.time())
+            # delete empty keys in items.
+            item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
+            epoch = int(time.time())
 
-        user_id = item.pop('identifier')
+            user_id = item.pop('identifier')
 
-        self.r.sadd('index', user_id)
-        self.r.hset(user_id, epoch, item)
+            self.r.sadd('index', user_id)
+            self.r.hset(user_id, epoch, item)
+
         return item
