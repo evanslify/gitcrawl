@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import json
+# spider runner
+from scrapy import signals
+from twisted.internet import reactor
+from scrapy.crawler import CrawlerProcess
+from scrapy.utils.project import get_project_settings
+from scrapy.signalmanager import SignalManager
+from multiprocessing import Process
+#
 
 
 class StackExchangeSpider(scrapy.Spider):
