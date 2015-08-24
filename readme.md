@@ -18,33 +18,33 @@ On this page:
 * * * 
 
 ## StackOverflow
-* [JSON output](docs/stackoverflow.json)
+* [JSON output](docs/output/json/output/json/stackoverflow.json)
 * [Documentation](docs/output/stackoverflow.md)
 
 ## Bitbucket
-* [JSON output](docs/bitbucket.json)
+* [JSON output](docs/output/json/bitbucket.json)
 * [Documentation](docs/output/bitbucket.md)
 
 ## Github
-* [JSON output](docs/github.json)
+* [JSON output](docs/output/json/github.json)
 * [Documentation](docs/output/github.md)
 
 ## Facebook
-* [JSON output](docs/facebook.json)
+* [JSON output](docs/output/json/facebook.json)
 * [Documentation](docs/output/facebook.md)
 
 ## Geeklist
-* [JSON output](docs/output/geeklist.json)
+* [JSON output](docs/output/json/output/geeklist.json)
 * [Documentation](docs/output/geeklist.md)
 
 ## LeetCode
-* [JSON output](docs/output/leetcode.json)
+* [JSON output](docs/output/json/output/leetcode.json)
 * [Documentation](docs/output/leetcode.md)
 
 ## Speakerdeck
-* [JSON output](docs/output/speakerdeck.json)
+* [JSON output](docs/output/json/output/speakerdeck.json)
 * [Documentation](docs/output/speakerdeck.md)
 
 ## Slideshare
-* [JSON output](docs/output/slideshare.json)
+* [JSON output](docs/output/json/output/slideshare.json)
 * [Documentation](docs/output/slideshare.md)
