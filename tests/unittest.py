@@ -16,9 +16,18 @@ import json
 class GetResults(object):
 
     def process_item(self, item, spider):
+        spider_name = getattr(spider, 'name')
         if args.validate:
-            spider_name = getattr(spider, 'name')
             schema_validate(item, spider_name)
+        if args.save:
+            saver(item, spider_name)
+
+
+def saver(item, spider_name):
+    filename = spider_name + '.json'
+    with codecs.open(filename, 'w+', 'utf-8') as file:
+        thing = dict(item)
+        file.write(json.dumps(thing))
 
 
 def schema_validate(input, spider_name):
@@ -44,7 +53,6 @@ def schema_validate(input, spider_name):
         print 'JSON Schema is not found. Generating one automatically...'
         commons.generate_schema(input, spider_name)
         print 'Done. Please review it manually.'
-
 
 def check_spider_list(name):
 
@@ -99,6 +107,10 @@ parser.add_argument(
 parser.add_argument(
     "-validate", dest='validate', action='store_true',
     help='Validate with JSON schema')
+
+parser.add_argument(
+    "-save", dest='save', action='store_true',
+    help='save JSON')
 
 # parser
 args = parser.parse_args()
