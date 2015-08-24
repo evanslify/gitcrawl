@@ -18,7 +18,7 @@ On this page:
 * * * 
 
 ## StackOverflow
-* [JSON output](docs/output/json/output/json/stackoverflow.json)
+* [JSON output](docs/output/json/stackoverflow.json)
 * [Documentation](docs/output/stackoverflow.md)
 
 ## Bitbucket
@@ -34,17 +34,17 @@ On this page:
 * [Documentation](docs/output/facebook.md)
 
 ## Geeklist
-* [JSON output](docs/output/json/output/geeklist.json)
+* [JSON output](docs/output/json/geeklist.json)
 * [Documentation](docs/output/geeklist.md)
 
 ## LeetCode
-* [JSON output](docs/output/json/output/leetcode.json)
+* [JSON output](docs/output/json/leetcode.json)
 * [Documentation](docs/output/leetcode.md)
 
 ## Speakerdeck
-* [JSON output](docs/output/json/output/speakerdeck.json)
+* [JSON output](docs/output/json/speakerdeck.json)
 * [Documentation](docs/output/speakerdeck.md)
 
 ## Slideshare
-* [JSON output](docs/output/json/output/slideshare.json)
+* [JSON output](docs/output/json/slideshare.json)
 * [Documentation](docs/output/slideshare.md)
