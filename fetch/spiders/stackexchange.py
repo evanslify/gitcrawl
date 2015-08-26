@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import scrapy
 import json
 
@@ -11,11 +10,16 @@ class StackExchangeSpider(scrapy.Spider):
 
         super(StackExchangeSpider, self).__init__(*args, **kwargs)
         self.target = kwargs.get('target')
-        self.site = kwargs.get('site').split(',')
+        self.site = kwargs.get('site')
+        self.debug = kwargs.get('debug')
 
-        if self.target and self.site is None:
+        if not self.debug and self.site:
+            self.site = self.site.split(';')
+        else:
+            self.site = None
+
+        if not self.target and not self.site:
             error = '%s%s' % (self.target, self.site)
-            # raise Exception('Missing argument.')
             raise Exception(error)
 
     def start_requests(self):
@@ -61,6 +65,11 @@ class StackExchangeSpider(scrapy.Spider):
         # "http://stackoverflow" -> "stackoverflow"
         return result[7:]
 
+    def dummy(self, response):
+        # to shut scrapy.FormRequest up, or it
+        # raises exception
+        pass
+
     def crawl_user_id(self, response):
 
         jr = json.loads(response.body_as_unicode())
@@ -71,10 +80,19 @@ class StackExchangeSpider(scrapy.Spider):
             user_id = item['user_id']
             site_name = self.extract_site_name(item['site_url'])
             container[site_name] = user_id
+            if self.site and site_name in self.site:
+                # August 25th 2015
+                # Calls scrapyd!
+                yield scrapy.FormRequest(
+                    'http://localhost:6800/schedule.json',
+                    formdata={'project': 'fetch',
+                              'spider': 'stackexchangesites',
+                              'target': str(user_id),
+                              'site': site_name},
+                    callback=self.dummy)
 
         result = {
             'StackUserInfo': container,
             'identifier': self.target
         }
-
-        return result
+        yield result
