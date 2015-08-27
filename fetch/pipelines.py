@@ -6,6 +6,7 @@
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import redis
 import time
+import json
 
 
 class FetchPipeline(object):
@@ -69,10 +70,8 @@ class RedisPipeline(object):
             # delete empty keys in items.
             # item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
             epoch = int(time.time())
-
             user_id = item.pop('identifier')
-
             self.r.sadd('index', user_id)
-            self.r.hset(user_id, epoch, item)
+            self.r.hset(user_id, epoch, json.dumps(dict(item)))
 
         return item
