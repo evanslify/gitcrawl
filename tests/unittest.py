@@ -1,12 +1,10 @@
 from scrapy.crawler import CrawlerProcess
-from scrapy import signals
 from scrapy.utils.project import get_project_settings
 from scrapy.signalmanager import SignalManager
 import spiders
 import commons
 import argparse
 from jsonschema import Draft4Validator
-from jsonschema import exceptions
 import codecs
 import time
 import glob
