@@ -5,6 +5,8 @@ from scrapy import Selector
 from fetch.items import FacebookItem
 from scrapy.utils.project import get_project_settings
 import redis
+import re
+from urlparse import urljoin
 
 
 class FacebookSpider(scrapy.Spider):
@@ -28,7 +30,7 @@ class FacebookSpider(scrapy.Spider):
             'Accept-Language': 'en-US,en;q=0.5',
             'Referer': 'https://m.facebook.com/',
             'Accept-Encoding': 'gzip, deflate'
-            }
+        }
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
             url = target['url']
@@ -57,15 +59,15 @@ class FacebookSpider(scrapy.Spider):
         callstack = meta['callstack']
 
         cookiez = self.get_cookiez()
+        self.profile_id = cookiez.get('c_user')
         profile_url = (
             'https://m.facebook.com/profile.php?'
-            'v=info&id=%s') % self.target
+            'v=info&id=%s') % self.profile_id
 
         callstack.append({
             'url': profile_url, 'callback': self.parse_mobile
-            })
-
-        return self.callnext(start_meta=meta, cookiez=cookiez)
+        })
+        return self.callnext(self, start_meta=meta, cookies=cookiez)
 
     def get_cookiez(self):
         # read from redis!
@@ -90,31 +92,32 @@ class FacebookSpider(scrapy.Spider):
     def parse_mobile(self, response):
 
         loader = response.meta['Loader']
+
         loader.update({
             'FacebookInfo': {},
             'identifier': self.profile_id
-            })
+        })
+
         items = loader['FacebookInfo']
-        sel = Selector(text=response.body_as_unicode())
+        callstack = response.meta['callstack']
 
         # parse dispay name
-        name = sel.xpath(
-            '//div[@class="bi"]//strong[@class="br"]/text()').extract()
+        name = response.xpath(
+            '//strong[@class]/text()').extract_first()
 
         # parse work!
         works = []
-        for i in sel.xpath('//div[@id="work"]//div[@class="da cr"]'):
-            i_selector = Selector(text=i.extract())
+        for work in response.xpath(
+                '//div[@id="work"]//div[starts-with(@id, "exp")]'):
             # conditions in <div class="bq">:
             # 4 <div> elements: comment / date / location supplied
             # 3 <div> elements: one of date / location is supplied
             # 2 <div> elements: one of date / location is supplied
             # 1 <div> elements: only company name supplied
-
-            work_name = i_selector.xpath(
-                '//span[@class="dd de ce"]/a/text()').extract()
-            work_facebook_uri = i_selector.xpath(
-                '//span[@class="dd de ce"]/a/@href').extract()
+            work_name = work.xpath(
+                'div/div/div/div[1]/span[1]/a/text()').extract_first()
+            work_facebook_uri = work.xpath(
+                'div/div/div/div[1]/span[1]/a/@href').extract_first()
 
             work = {
                 'work_name': work_name,
@@ -124,14 +127,14 @@ class FacebookSpider(scrapy.Spider):
 
         # parse education!
         edus = []
-        for i in sel.xpath('//div[@id="education"]//div[@class="da cr"]'):
-            i_selector = Selector(text=i.extract())
-            edu_name = i_selector.xpath(
-                '//span[@class="dd de ce"]/a/text()').extract()
-            edu_facebook_uri = i_selector.xpath(
-                '//span[@class="dd de ce"]/a/@href').extract()
-            edu_desc = i_selector.xpath(
-                '//span[@class="df dg"]/text()').extract()
+        for school in response.xpath(
+                '//div[@id="education"]//div[starts-with(@id, "exp")]'):
+            edu_name = school.xpath(
+                'div/div/div/div[1]//a/text()').extract_first()
+            edu_facebook_uri = school.xpath(
+                'div/div/div/div[1]//a/@href').extract_first()
+            edu_desc = school.xpath(
+                'div/div/div/div[2]//span/text()').extract_first()
             edu = {
                 'edu_name': edu_name,
                 'edu_facebook_uri': edu_facebook_uri,
@@ -140,55 +143,55 @@ class FacebookSpider(scrapy.Spider):
             edus.append(edu)
 
         # parse skillz!
-        skills = sel.xpath(
-            '//div[@id="skills"]//div[@class="da dr cr ds"]/span/text()'
-            ).extract()
+        skills = response.xpath(
+            '//div[@id="skills"]/div/div[2]//span/text()'
+        ).extract_first()
 
         # parse living ah!
-        current_city = sel.xpath(
-            '//div[@id="living"]//div[@title="Current City"]'
-            '//div[@class="dx"]/a/text()'
-            ).extract()
-        hometown = sel.xpath(
-            '//div[@id="living"]//div[@title="Hometown"]'
-            '//div[@class="dx"]/a/text()'
-            ).extract()
+        current_city = response.xpath(
+            '//div[@id="living"]//div[@title="Current City"]//a/text()'
+        ).extract_first()
+        hometown = response.xpath(
+            '//div[@id="living"]//div[@title="Hometown"]//a/text()'
+        ).extract_first()
         living = {
             'hometown': hometown,
             'current_city': current_city
-            }
+        }
 
         # parse contact info
-        contacts_infos = sel.xpath(
-            '//div[@id="contact-info"]//div[@class="cp"]')
-        contacts_selector = Selector(text=contacts_infos[0].extract())
+        contact_info = response.xpath(
+            '//div[@id="contact-info"]/div')
 
-        contact_phone = contacts_selector.xpath(
-            '//div[@title="Mobile"]//div[@class="dx"]/span/span/text()'
-            ).extract()
-        contact_site = contacts_selector.xpath(
-                    '//div[@title="Website"]//div[@class="dx"]/a/text()'
-                    ).extract()
+        contact_phone = contact_info.xpath(
+            'div//div[@title="Mobile"]//span[@dir]/text()').extract_first()
+        contact_skype = contact_info.xpath(
+            'div//div[@title="Skype"]//td[2]/div/text()').extract_first()
+        contact_email = contact_info.xpath(
+            'div//div[@title="Email"]//td[2]/div/text()').extract_first()
+        contact_site = contact_info.xpath(
+            'div//div[@title="Website"]//td[2]/div/a/@href'
+        ).extract_first()
 
         contact_info = {
             'phone': contact_phone,
-            'website': contact_site
+            'website': contact_site,
+            'skype': contact_skype,
+            'email': contact_email
         }
 
         # parse basic info
-        basics_infos = sel.xpath(
-            '//div[@id="basic-info"]//div[@class="cp"]')
-        basics_selector = Selector(text=basics_infos[0].extract())
+        basics_infos = response.xpath(
+            '//div[@id="basic-info"]/div/div[2]')
 
-        basic_birthday = basics_selector.xpath(
-            '//div[@title="Birthday"]//div[@class="dx"]/text()').extract()
-        basic_bloodtype = basics_selector.xpath(
-            '//div[@title="Blood Type"]//div[@class="dx"]/text()').extract()
-        basic_languages = basics_selector.xpath(
-            '//div[@title="Languages"]//div[@class="dx"]/text()').extract()
-        basic_gender = basics_selector.xpath(
-            '//div[@title="Gender"]//div[@class="dx"]/text()').extract()
-
+        basic_birthday = basics_infos.xpath(
+            'div[@title="Birthday"]//td[2]//text()').extract_first()
+        basic_bloodtype = basics_infos.xpath(
+            'div[@title="Blood Type"]//td[2]//text()').extract_first()
+        basic_languages = basics_infos.xpath(
+            'div[@title="Languages"]//td[2]//text()').extract_first()
+        basic_gender = basics_infos.xpath(
+            'div[@title="Gender"]//td[2]//text()').extract_first()
         basic_info = {
             'birthday': basic_birthday,
             'bloodtype': basic_bloodtype,
@@ -204,5 +207,66 @@ class FacebookSpider(scrapy.Spider):
             'living': living,
             'contact_info': contact_info,
             'basic_infos': basic_info
-            })
+        })
+
+        url = 'https://m.facebook.com/events/past'
+        callstack.append({
+            'url': url, 'callback': self.crawl_event})
+        return self.callnext(response)
+
+    def crawl_event(self, response):
+
+        loader = response.meta['Loader']
+        items = loader['FacebookInfo'].setdefault('events', [])
+        callstack = response.meta['callstack']
+        for events in response.xpath('//div[@class="bg bo"]'):
+            title = events.xpath(
+                'div/div[1]//h4/text()').extract_first()
+            event_month = events.xpath(
+                'div/div[2]/span/span[1]/text()').extract_first()
+            event_day = events.xpath(
+                'div/div[2]/span/span[2]/text()').extract_first()
+            event_time = events.xpath(
+                'div/div[2]/div[1]/span/text()').extract_first()
+            event_loc = events.xpath(
+                'div/div[2]/div[2]/span/text()').extract_first()
+            event_city = events.xpath(
+                'div/div[2]/div[3]/span/text()').extract_first()
+            event_id = re.findall('(?<=events\/).*?(?=\?)', events.xpath(
+                'div/div[2]//a/@href').extract_first())[0]
+            result = {
+                'month': event_month,
+                'day': event_day,
+                'time': event_time,
+                'loc': event_loc,
+                'city': event_city,
+                'id': event_id,
+                'title': title
+            }
+            items.append(result)
+        more = response.xpath('//div[@id="event_list_seemore"]')
+        if more:
+            url1 = more.xpath('a/@href').extract_first()
+            url = urljoin(response.url, url1)
+            callstack.append({
+                'url': url, 'callback': self.crawl_event})
+        else:
+            group_url = 'https://m.facebook.com/groups/?seemore'
+            callstack.append({
+                'url': group_url, 'callback': self.crawl_groups})
+
+        return self.callnext(response)
+
+    def crawl_groups(self, response):
+
+        loader = response.meta['Loader']
+        callstack = response.meta['callstack']
+        item = loader['FacebookInfo'].setdefault('groups', [])
+
+        for group in response.xpath('//li[@class="bi"]'):
+            url = group.xpath('table//a/@href').extract_first()
+            name = group.xpath('table//a/text()').extract_first()
+            item.append({
+                'url': url,
+                'name': name})
         return self.callnext(response)
