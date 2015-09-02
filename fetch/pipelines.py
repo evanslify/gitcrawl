@@ -45,7 +45,8 @@ class RedisPipeline(object):
             'stackexchangesites': 8,
             'leetcode': 9,
             'slideshare': 10,
-            'speakerdeck': 111
+            'speakerdeck': 11,
+            'meetup': 12
         }
 
         spider_name = getattr(spider, 'name')

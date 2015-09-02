@@ -57,5 +57,11 @@ class SpeakerdeckItems(Item):
     identifier = Field()
 
 
+class MeetupItem(Item):
+    UserInfo = Field()
+    GroupInfo = Field()
+    identifier = Field()
+
+
 class HashListItem(Item):
     HashInfo = Field()
