@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import json
-from scrapy import Selector
 from fetch.items import FacebookItem
 from scrapy.utils.project import get_project_settings
 import redis
@@ -16,6 +15,7 @@ class FacebookSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super(FacebookSpider, self).__init__(*args, **kwargs)
         self.target = kwargs.get('target')
+        self.mode = kwargs.get('mode')
 
     def callnext(self, response, cookies=None, start_meta=None):
 
@@ -25,8 +25,11 @@ class FacebookSpider(scrapy.Spider):
             meta = start_meta
         headers = {
             'Host': 'm.facebook.com',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:39.0) Gecko/20100101 Firefox/39.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:39.0) Gecko/20100101 '
+                'Firefox/39.0'),
+            'Accept': ('text/html,application/xhtml+xml,application/xml;q=0.9'
+                       ',*/*;q=0.8'),
             'Accept-Language': 'en-US,en;q=0.5',
             'Referer': 'https://m.facebook.com/',
             'Accept-Encoding': 'gzip, deflate'
@@ -34,6 +37,8 @@ class FacebookSpider(scrapy.Spider):
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
             url = target['url']
+            if target.get('arg') == 'noheader':
+                headers = ''
             yield scrapy.Request(
                 url=url, meta=meta,
                 callback=target['callback'], errback=self.callnext,
@@ -41,33 +46,62 @@ class FacebookSpider(scrapy.Spider):
         else:
             items = FacebookItem()
             loader = response.meta.get('Loader')
-            items['identifier'] = loader['identifier']
-            items['FacebookInfo'] = loader['FacebookInfo']
+            for key in loader.iterkeys():
+                items[key] = loader[key]
             yield items
 
     def start_requests(self):
         # override scrapy's own method to start requests.
         meta = scrapy.Request.meta
-        # declaring item loader's layout.
         meta = {
             'callstack': [],
             'Loader': {
-                'FacebookInfo': {},
                 'identifier': self.target
             }
         }
         callstack = meta['callstack']
-
         cookiez = self.get_cookiez()
-        self.profile_id = cookiez.get('c_user')
-        profile_url = (
-            'https://m.facebook.com/profile.php?'
-            'v=info&id=%s') % self.profile_id
-
-        callstack.append({
-            'url': profile_url, 'callback': self.parse_mobile
-        })
+        c_user = cookiez['c_user']
+        # Checks whether self.target(argument) matches with the cookie c_user
+        # If assert fails means that you have given the wrong cookie.
+        assert c_user == self.target
+        callstack.extend(self.parse_argument())
         return self.callnext(self, start_meta=meta, cookies=cookiez)
+
+    def parse_argument(self):
+        """
+        Parse arguments from self.mode, which is
+        > scrapy -a mode=(friends|profile|events|groups)
+        @returns List of dicts contains url and callback
+        """
+        # pase user info
+        profile_url = (
+            'https://m.facebook.com/profile.php?v=info'
+            '&id=%s') % self.target
+        friends_url = 'https://m.facebook.com/friends/center/friends'
+        events_url = 'https://m.facebook.com/events/past'
+        group_url = 'https://m.facebook.com/groups?seemore'
+
+        url_dict = {
+            'profile': (profile_url, self.parse_mobile),
+            'friends': (friends_url, self.crawl_friend_list),
+            'events': (events_url, self.crawl_event),
+            'groups': (group_url, self.crawl_groups)}
+        results = []
+        if self.mode:
+            mode_list = self.mode.split(',')
+            for mode in mode_list:
+                if mode in url_dict.iterkeys():
+                    cursor = url_dict[mode]
+                    results.append(
+                        {'url': cursor[0], 'callback': cursor[1]})
+                else:
+                    raise Exception('Weird mode given.')
+        else:
+            for url, func in url_dict.itervalues():
+                results.append({
+                    'url': url, 'callback': func})
+        return results
 
     def get_cookiez(self):
         # read from redis!
@@ -93,17 +127,11 @@ class FacebookSpider(scrapy.Spider):
 
         loader = response.meta['Loader']
 
-        loader.update({
-            'FacebookInfo': {},
-            'identifier': self.profile_id
-        })
-
-        items = loader['FacebookInfo']
-        callstack = response.meta['callstack']
+        items = loader.setdefault('UserInfo', {})
 
         # parse dispay name
         name = response.xpath(
-            '//strong[@class]/text()').extract_first()
+            '//div[@id="root"]//strong[@class]/text()').extract_first()
 
         # parse work!
         works = []
@@ -209,25 +237,28 @@ class FacebookSpider(scrapy.Spider):
             'basic_infos': basic_info
         })
 
-        url = 'https://m.facebook.com/events/past'
-        callstack.append({
-            'url': url, 'callback': self.crawl_event})
         return self.callnext(response)
 
     def crawl_event(self, response):
 
         loader = response.meta['Loader']
-        items = loader['FacebookInfo'].setdefault('events', [])
+        items = loader.setdefault('EventInfo', {})
         callstack = response.meta['callstack']
-        for events in response.xpath('//div[@class="bg bo"]'):
+        #  for events in response.xpath('//div[@class="bg bo"]'):
+
+        for events in response.xpath(
+                '//td[@id="events_card_list"]/div[@class][not(id)]'
+                '[contains(@class," ")][string-length(@class) = 5]'):
+                # wtf?
+
             title = events.xpath(
                 'div/div[1]//h4/text()').extract_first()
-            event_month = events.xpath(
-                'div/div[2]/span/span[1]/text()').extract_first()
-            event_day = events.xpath(
-                'div/div[2]/span/span[2]/text()').extract_first()
-            event_time = events.xpath(
-                'div/div[2]/div[1]/span/text()').extract_first()
+            #  event_month = events.xpath(
+            #      'div/div[2]/span/span[1]/text()').extract_first()
+            #  event_day = events.xpath(
+            #      'div/div[2]/span/span[2]/text()').extract_first()
+            #  event_time = events.xpath(
+            #      'div/div[2]/div[1]/span/text()').extract_first()
             event_loc = events.xpath(
                 'div/div[2]/div[2]/span/text()').extract_first()
             event_city = events.xpath(
@@ -235,38 +266,138 @@ class FacebookSpider(scrapy.Spider):
             event_id = re.findall('(?<=events\/).*?(?=\?)', events.xpath(
                 'div/div[2]//a/@href').extract_first())[0]
             result = {
-                'month': event_month,
-                'day': event_day,
-                'time': event_time,
+                #  'month': event_month,
+                #  'day': event_day,
+                #  'time': event_time,
                 'loc': event_loc,
                 'city': event_city,
                 'id': event_id,
                 'title': title
             }
-            items.append(result)
+            items[event_id] = result
+            event_url = 'https://m.facebook.com/events/%s' % event_id
+            event_json_url = (
+                'https://www.facebook.com/events/typeahead/guest_list/?event_'
+                'id=%s&tabs[0]=going&tabs[1]=maybe&tabs[2]=invited&tabs[3]=de'
+                'clined&order[declined]=affinity&order[going]=affinity&order['
+                'invited]=affinity&order[maybe]=affinity&order[watched]=affin'
+                'ity&bucket_schema[going]=friends&bucket_schema[maybe]=friend'
+                's&bucket_schema[invited]=friends&bucket_schema[declined]=fri'
+                'ends&__user=1582133957&__a=1&__req=10') % event_id
+            callstack.extend([
+                {'url': event_url, 'callback': self.crawl_event_detail},
+                {'url': event_json_url, 'callback': self.crawl_event_json,
+                    'arg': 'noheader'}])
+
         more = response.xpath('//div[@id="event_list_seemore"]')
         if more:
             url1 = more.xpath('a/@href').extract_first()
             url = urljoin(response.url, url1)
             callstack.append({
                 'url': url, 'callback': self.crawl_event})
-        else:
-            group_url = 'https://m.facebook.com/groups/?seemore'
-            callstack.append({
-                'url': group_url, 'callback': self.crawl_groups})
 
         return self.callnext(response)
 
     def crawl_groups(self, response):
 
         loader = response.meta['Loader']
-        callstack = response.meta['callstack']
-        item = loader['FacebookInfo'].setdefault('groups', [])
-
-        for group in response.xpath('//li[@class="bi"]'):
-            url = group.xpath('table//a/@href').extract_first()
-            name = group.xpath('table//a/text()').extract_first()
+        item = loader.setdefault('GroupInfo', [])
+        for group in response.xpath(
+                '//h3[text() = "Groups"]/following-sibling::ul/li'):
+            info = group.xpath('table//a')
+            url = info.xpath('@href').extract_first()
+            name = info.xpath('text()').extract_first()
             item.append({
                 'url': url,
                 'name': name})
+        return self.callnext(response)
+
+    def crawl_event_json(self, response):
+        # monkey hack :D see the magic here.
+        """
+        Magic JSON function to parse a event's participants.
+        """
+        loader = response.meta['Loader']
+        event_id = re.findall('(?<=event_id=)\d+(?=&)', response.url)[0]
+        items = loader['EventInfo'].setdefault(event_id, {})
+        """
+        JSON response:
+            'bootloadable'
+            'lid'
+            '__ar'
+        --->'payload' --> 'maybe'    --> 'cursor'
+            'ixData'      'invited'      'sections' ----> [0]: useless
+                          'going'        'emailCursor'    [1]: friends
+                          'declined'                      [2]: not friends
+                                                          [3]: email invite(?)
+        """
+        jr = json.loads(response.body_as_unicode()[9:])
+        items['participants'] = jr['payload']
+        return self.callnext(response)
+
+    def crawl_event_detail(self, response):
+
+        loader = response.meta['Loader']
+        event_id = response.url.split('/')[-1]
+        items = loader['EventInfo'][event_id]
+
+        for st in response.xpath('//div[@id="event_button_bar"]//a'):
+            tag_class = st.xpath('@class').extract()
+            for tag in tag_class:
+                tag_size = len(tag.split())
+                if tag_size == 6:
+                    status = st.xpath('/span/text()').extract_first()
+                else:
+                    status = None
+        time = response.xpath(
+            '//div[@id="event_summary"]/div[1]/@title').extract_first()
+        x_hoster = response.xpath(
+            '//div[@id="event_header"]//a[starts-with(@href, "/profile.php")]')
+        hoster = []
+        for host in x_hoster:
+            host_id = host.xpath('@href')
+            host_name = host.xpath('text()')
+            hoster.append({
+                'id': host_id,
+                'name': host_name})
+        x_inviter = response.xpath(
+            '//div[@id="event_summary"]/div[starts-with(@title, "Invited by")]'
+            '/@title').extract()
+        inviter = []
+        for one_inviter in x_inviter:
+            inviter.append(one_inviter.strip('Invited by '))
+
+        desc = response.xpath(
+            '//div[@id="event_description"]/div/div').extract_first()
+
+        items.update({
+            'status': status,
+            'time': time,
+            'inviter': inviter,
+            'description': desc})
+
+        return self.callnext(response)
+
+    def crawl_friend_list(self, response):
+
+        loader = response.meta['Loader']
+        items = loader.setdefault('FriendInfo', [])
+        callstack = response.meta['callstack']
+
+        for friend in response.xpath(
+                '//div[@id="friends_center_main"]/div[2]/*'):
+            url = friend.xpath('table//a/@href').extract_first()
+            name = friend.xpath('table//a/text()').extract_first()
+            mutuals = friend.xpath(
+                'table//a/following-sibling::div/text()').extract_first()
+            items.append({
+                'url': url,
+                'name': name,
+                'mutuals': mutuals})
+        more = response.xpath('//span[text() = "See More"]')
+        if more:
+            raw_new_url = more.xpath('../@href').extract_first()
+            url = urljoin(response.url, raw_new_url)
+            callstack.append({
+                'url': url, 'callback': self.crawl_friend_list})
         return self.callnext(response)
