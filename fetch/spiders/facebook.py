@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
-import json
+import ujson as json
 from fetch.items import FacebookItem
 from scrapy.utils.project import get_project_settings
 import redis
@@ -17,7 +17,7 @@ class FacebookSpider(scrapy.Spider):
         self.target = kwargs.get('target')
         self.mode = kwargs.get('mode')
 
-    def callnext(self, response, cookies=None, start_meta=None):
+    def callnext(self, response, start_meta=None):
 
         try:
             meta = response.request.meta
@@ -37,12 +37,15 @@ class FacebookSpider(scrapy.Spider):
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
             url = target['url']
-            if target.get('arg') == 'noheader':
-                headers = ''
+
+            if target.get('arg') == 'nh':
+                del headers['Host']
+                del headers['Referer']
+
             yield scrapy.Request(
                 url=url, meta=meta,
                 callback=target['callback'], errback=self.callnext,
-                cookies=cookies, headers=headers)
+                cookies=self.cookies, headers=headers)
         else:
             items = FacebookItem()
             loader = response.meta.get('Loader')
@@ -60,13 +63,13 @@ class FacebookSpider(scrapy.Spider):
             }
         }
         callstack = meta['callstack']
-        cookiez = self.get_cookiez()
-        c_user = cookiez['c_user']
+        self.cookies = self.get_cookiez()
+        c_user = self.cookies['c_user']
         # Checks whether self.target(argument) matches with the cookie c_user
         # If assert fails means that you have given the wrong cookie.
         assert c_user == self.target
         callstack.extend(self.parse_argument())
-        return self.callnext(self, start_meta=meta, cookies=cookiez)
+        return self.callnext(self, start_meta=meta)
 
     def parse_argument(self):
         """
@@ -287,7 +290,7 @@ class FacebookSpider(scrapy.Spider):
             callstack.extend([
                 {'url': event_url, 'callback': self.crawl_event_detail},
                 {'url': event_json_url, 'callback': self.crawl_event_json,
-                    'arg': 'noheader'}])
+                    'arg': 'nh'}])
 
         more = response.xpath('//div[@id="event_list_seemore"]')
         if more:
@@ -312,27 +315,96 @@ class FacebookSpider(scrapy.Spider):
                 'name': name})
         return self.callnext(response)
 
+    def fix_json(self, input):
+        """
+        Eradicates Facebook's broken, sinful JSON and brings it to light.
+        """
+        for v in input.itervalues():
+            temp = {}
+            for section in v['sections']:
+                name = section[0]
+                value = section[1]
+                temp[name] = value
+            v['sections'] = temp
+        return input
+
+    def parse_event_json(self, payload, event_id, callstack):
+        """
+        Recursively parses Facebook's event participants JSON object.
+        Currently, it only scans through objects,
+        see if 'cursor' exists and appends cursor to callstack.
+        @input: whole JSON
+        """
+        cursors = []
+        for section, value in payload.iteritems():
+            cursor = value.get('cursor')
+            if cursor:
+                cursors.append((section, cursor))
+            else:
+                pass
+
+        try:
+            self._event_recursive_count
+        except AttributeError:
+            self._event_recursive_count = 0
+
+        if cursors and self._event_recursive_count == 0:
+            self._event_recursive_count =+ 1
+            args = []
+            index = 0
+            for section, cursor in cursors:
+                arg = (
+                    '&tabs[{index}]={section}&order[{section}]={sort}&bucket_'
+                    'schema[{section}]=friends&cursor[{section}]={cursor}'
+                ).format(
+                    **{
+                        'index': index,
+                        'section': section,
+                        'cursor': cursor,
+                        'sort': 'affinity'})
+                args.append(arg)
+                index =+ 1
+
+            big_arg = ''.join(args)
+            url = (
+                'https://www.facebook.com/events/typeahead/guest_list/?event_i'
+                'd={event_id}{big_arg}&__user={uid}&__a=1&__req=3e&__rev=1919699'
+            ).format(
+                **{
+                    'event_id': event_id,
+                    'big_arg': big_arg,
+                    'uid': self.target})
+
+            callstack.append({
+                'url': url, 'callback': self.crawl_event_json,
+                'arg': 'nh'})
+        elif self._event_recursive_count > 0:
+            self._event_recursive_count = 0
+
+        return
+
     def crawl_event_json(self, response):
         # monkey hack :D see the magic here.
         """
-        Magic JSON function to parse a event's participants.
+        Magic JSON function to crawl an event's participants.
         """
-        loader = response.meta['Loader']
+        loader = response.meta['Loader']['EventInfo']
         event_id = re.findall('(?<=event_id=)\d+(?=&)', response.url)[0]
-        items = loader['EventInfo'].setdefault(event_id, {})
-        """
-        JSON response:
-            'bootloadable'
-            'lid'
-            '__ar'
-        --->'payload' --> 'maybe'    --> 'cursor'
-            'ixData'      'invited'      'sections' ----> [0]: useless
-                          'going'        'emailCursor'    [1]: friends
-                          'declined'                      [2]: not friends
-                                                          [3]: email invite(?)
-        """
-        jr = json.loads(response.body_as_unicode()[9:])
-        items['participants'] = jr['payload']
+        callstack = response.meta['callstack']
+        event = loader.setdefault(event_id, {})
+        raw = json.loads(response.body_as_unicode()[9:])['payload']
+        payload = self.fix_json(raw)
+        self.parse_event_json(payload, event_id, callstack)
+
+        items = event.get('participants')
+        if items:
+            result = items.copy()
+            result.update(payload)
+        else:
+            result = payload
+
+        event['participants'] = result
+
         return self.callnext(response)
 
     def crawl_event_detail(self, response):
@@ -370,11 +442,30 @@ class FacebookSpider(scrapy.Spider):
         desc = response.xpath(
             '//div[@id="event_description"]/div/div').extract_first()
 
+        x_precipitant_counts = response.xpath(
+            '//div[@id="event_guest_list"]//tbody')
+
+        went_counts = x_precipitant_counts.xpath(
+            'tr//div[contains(text(), "went")]/preceding-sibling::div/text()'
+        ).extract_first()
+        maybe_counts = x_precipitant_counts.xpath(
+            'tr//div[contains(text(), "maybe")]/preceding-sibling::div/text()'
+        ).extract_first()
+        invited_counts = x_precipitant_counts.xpath(
+            'tr//div[contains(text(), "invited")]/preceding-sibling::div/text()'
+        ).extract_first()
+
+        counts_dict = {
+            'went': went_counts,
+            'maybe': maybe_counts,
+            'invited': invited_counts}
+
         items.update({
             'status': status,
             'time': time,
             'inviter': inviter,
-            'description': desc})
+            'description': desc,
+            'precipitant_counts': counts_dict})
 
         return self.callnext(response)
 

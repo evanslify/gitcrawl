@@ -21,7 +21,7 @@ BOT_NAME = 'fetch'
 
 SPIDER_MODULES = ['fetch.spiders']
 NEWSPIDER_MODULE = 'fetch.spiders'
-# LOG_LEVEL = 'WARNING'
+#  LOG_LEVEL = 'WARNING'
 #  LOG_STDOUT = True
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
@@ -42,24 +42,25 @@ NEWSPIDER_MODULE = 'fetch.spiders'
 # COOKIES_ENABLED=False
 
 # Disable Telnet Console (enabled by default)
-TELNETCONSOLE_ENABLED=False
+#  TELNETCONSOLE_ENABLED=False
+TELNETCONSOLE_ENABLED = False
 
 # Override the default request headers:
-# DEFAULT_REQUEST_HEADERS = {
-#   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-#   'Accept-Language': 'en',
-#}
+#  DEFAULT_REQUEST_HEADERS = {
+#  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+#  'Accept-Language': 'en',
+#  }
 
 # Enable or disable spider middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 # SPIDER_MIDDLEWARES = {
 #    'fetch.middlewares.MyCustomSpiderMiddleware': 543,
-#}
+# }
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
-   'scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware': 543,
+    'scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware': 543,
 }
 
 
@@ -72,7 +73,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   'fetch.pipelines.RedisPipeline': 1,
+    'fetch.pipelines.RedisPipeline': 1,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -93,4 +94,3 @@ ITEM_PIPELINES = {
 # HTTPCACHE_DIR='httpcache'
 # HTTPCACHE_IGNORE_HTTP_CODES=[]
 # HTTPCACHE_STORAGE='scrapy.extensions.httpcache.FilesystemCacheStorage'
-

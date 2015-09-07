@@ -6,7 +6,7 @@
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import redis
 import time
-import json
+import ujson as json
 
 
 class FetchPipeline(object):
