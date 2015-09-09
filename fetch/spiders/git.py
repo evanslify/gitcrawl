@@ -413,7 +413,6 @@ class GitSpider(scrapy.Spider):
                     'callback': self.crawl_html_user_fellow
                 }])
 
-
         if following_count > 0:
             actions.extend([
                 {
@@ -471,13 +470,13 @@ class GitSpider(scrapy.Spider):
             '//h3[@class="follow-list-name"]/span/a/text()').extract()
         info_list = response.selector.xpath(
             '//p[@class="follow-list-info"]/descendant-or-self::text()'
-            ).extract()
+        ).extract()
         info_list = [name for name in info_list if name.strip()]
 
         for i in range(0, len(name_list)):
             username = response.selector.xpath(
                 '//h3[@class="follow-list-name"]/span/a/@href'
-                ).extract()[i][1:]
+            ).extract()[i][1:]
             # i shall repair thie in a more elegant way.
             # repaired temporary aug 17 2015
             # start
@@ -486,7 +485,7 @@ class GitSpider(scrapy.Spider):
             except IndexError:
                 items.append({
                     'user_login': username
-                    })
+                })
                 user = filter(lambda x: x['user_login'] == username, items)[0]
 
             user.update({
@@ -496,7 +495,7 @@ class GitSpider(scrapy.Spider):
             # end
         html_pagination = response.selector.xpath(
             '//div[@class="pagination"]/a[text()[contains(.,"Next")]]/@href'
-            ).extract()
+        ).extract()
 
         if len(html_pagination) > 0:
             callstack.append({
