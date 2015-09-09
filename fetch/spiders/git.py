@@ -439,6 +439,13 @@ class GitSpider(scrapy.Spider):
 
         contrib_number = response.selector.xpath(
             '//span[@class="contrib-number"]/text()').extract()
+        # Sep 9: If user is Group this will still run
+        # Monkey patch first
+        try:
+            contrib_number[0]
+        except IndexError:
+            return self.callnext(response)
+
         items.update({
             'user_last_year_contributes': contrib_number[0],
             'user_longest_streak': contrib_number[1],
