@@ -1,5 +1,5 @@
 import scrapy
-import json
+import ujson as json
 import re
 from fetch.items import GithubItem
 
@@ -56,8 +56,8 @@ class GitSpider(scrapy.Spider):
 
         if header.find('next') != -1:
             # if valid, first url will be the next page
-            new_page_number = re.findall('(?<=&page=)[0-9]', header)[0]
-            new_page = str(re.sub('(?<=&page=)[0-9]', new_page_number, url))
+            new_page_number = re.findall('(?<=&page=)\d+', header)[0]
+            new_page = str(re.sub('(?<=&page=)\d+', new_page_number, url))
         else:
             new_page = None
         return new_page
@@ -540,7 +540,7 @@ class GitSpider(scrapy.Spider):
             if gist[1] is not None:
                 url = gist[1]
                 callstack.insert(0, {
-                    'url': url, 'callback': self.crawl_user_gists_comments
+                    'url': url, 'callback': self.crawl_user_gist_comments
                 })
             items.append(gist[0])
         return self.callnext(response, caller=self.crawl_user_gist)
