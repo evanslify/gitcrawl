@@ -423,10 +423,11 @@ class FacebookSpider(scrapy.Spider):
                     status = None
         time = response.xpath(
             '//div[@id="event_summary"]/div[1]/@title').extract_first()
-        x_hoster = response.xpath(
+
+        _hoster = response.xpath(
             '//div[@id="event_header"]//a[starts-with(@href, "/profile.php")]')
         hoster = []
-        for host in x_hoster:
+        for host in _hoster:
             host_id = host.xpath('@href')
             host_name = host.xpath('text()')
             hoster.append({
@@ -482,7 +483,7 @@ class FacebookSpider(scrapy.Spider):
             mutuals = friend.xpath(
                 'table//a/following-sibling::div/text()').extract_first()
             items.append({
-                'url': url,
+                'url': re.findall('(?<=uid=)\d+', url)[0],
                 'name': name,
                 'mutuals': mutuals})
         more = response.xpath('//span[text() = "See More"]')
@@ -491,4 +492,29 @@ class FacebookSpider(scrapy.Spider):
             url = urljoin(response.url, raw_new_url)
             callstack.append({
                 'url': url, 'callback': self.crawl_friend_list})
+        else:
+            friend_list_json_url = (
+                'https://www.facebook.com/ajax/typeahead/first_degree.php?__a'
+                '=1&filter[0]=user&options[0]=friends_only&options[1]=nm&toke'
+                'n=v7&viewer={uid}&__user={uid}&context=facebar'
+            ).format(
+                **{
+                    'uid': self.target})
+            callstack.append({
+                'url': friend_list_json_url,
+                'callback': self.crawl_friend_list_json,
+                'arg': 'nh'})
+        return self.callnext(response)
+
+    def crawl_friend_list_json(self, response):
+
+        loader = response.meta['Loader']
+        items = loader.setdefault('FriendInfo_JSON', [])
+
+        jr = json.loads(response.body_as_unicode()[9:])
+        content = jr['payload']['entries']
+        # remove the first item, the User itself.
+        del(content[0])
+        items.extend(content)
+
         return self.callnext(response)

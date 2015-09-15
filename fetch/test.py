@@ -3,16 +3,16 @@ import subprocess
 # scrapy crawl -a target={1} github
 
 l = [
-    #'xingularity',
+    'xingularity',
     'euphoris',
-    #'teddychoi',
-    #'shimika',
-    #'limeburst',
-    #'earthreader',
-    #'clicheio',
-    #'spoqa',
+    'teddychoi',
+    'shimika',
+    'limeburst',
+    'earthreader',
+    'clicheio',
+    'spoqa',
     'dahlia',
-    #'ZongHanXie'
+    'ZongHanXie'
 ]
 
 for user in l:
