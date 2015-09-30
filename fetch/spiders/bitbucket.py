@@ -47,10 +47,6 @@ class BitbucketSpider(scrapy.Spider):
             for key in loader.iterkeys():
                 items[key] = loader[key]
             yield items
-            #  items['RepoInfo'] = loader['RepoInfo']
-            #  items['UserInfo'] = loader['UserInfo']
-            #  items['identifier'] = loader['identifier']
-            #  yield items
 
 # ------------
 # Parsing methods starts here.
@@ -168,9 +164,9 @@ class BitbucketSpider(scrapy.Spider):
                     'url': i[0], 'callback': i[1]
                 })
         else:
-            for i in self.mode:
-                if i in url_dict.iterkeys():
-                    detail = url_dict[i]
+            for mode in self.mode:
+                if mode in url_dict.iterkeys():
+                    detail = url_dict[mode]
                     actions.append({
                         'url': detail[0], 'callback': detail[1]
                     })
