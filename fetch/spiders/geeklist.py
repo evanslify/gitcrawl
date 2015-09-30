@@ -23,9 +23,14 @@ class GeeklistSpider(scrapy.Spider):
             'oguYFRZVihTuPfA')
 
     def page_plus_one(self, input):
+        """
+        Takes a URL, reads it's pagination number and +1
+        @returns-str
+        @input-response.url
+        """
         # determine previous page number and +1
         pagination = re.findall(
-                '(?<=page=)(\d+)', input)[0]
+            '(?<=page=)(\d+)', input)[0]
         if len(pagination) > 0:
             # a pagination query string already exists
             new_pagination = int(pagination) + 1
@@ -40,19 +45,20 @@ class GeeklistSpider(scrapy.Spider):
 
         return next_page_url
 
-    def callnext(self, response, caller=None, status=False):
+    def callnext(self, response=None, caller=None, starting_meta=None, status=False):
 
-        # trick to override the default parsing method :D
-        try:
+        if starting_meta:
+            meta = starting_meta
+        elif not starting_meta and response:
             meta = response.request.meta
-        except AttributeError:
-            meta = response
+        else:
+            raise Exception
 
         if status is not False:
             url = self.page_plus_one(input=response.url)
             meta['callstack'].insert(
-                    0,
-                    {'url': url, 'callback': caller})
+                0,
+                {'url': url, 'callback': caller})
 
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
@@ -63,16 +69,13 @@ class GeeklistSpider(scrapy.Spider):
                 callback=target['callback'], errback=self.callnext,
                 headers=headers)
         else:
-            # from pudb import set_trace; set_trace()
             items = GeeklistItem()
             loader = response.meta.get('Loader')
-            items['UserInfo'] = loader['UserInfo']
-            items['identifier'] = loader['identifier']
+            for key in loader.iterkeys():
+                items[key] = loader[key]
             yield items
 
     def start_requests(self):
-        # trick to override default parse method :D
-        # from pudb import set_trace; set_trace()
 
         meta = scrapy.Request.meta
         meta = {
@@ -86,16 +89,19 @@ class GeeklistSpider(scrapy.Spider):
         # start generating dict of urls
         names_list = ['micros', 'contribs', 'cards']
         urls = {}
-        for i in names_list:
+
+        for name in names_list:
             url = (
-                self.baseurl + 'users/' + self.target + '/' + i + '?count=50')
+                self.baseurl + 'users/' + self.target + '/' + name + '?count=50')
+
             urls.update({
-                i: url
-                })
+                name: url
+            })
+
         user_url = self.baseurl + 'users/' + self.target
         urls.update({
             'user': user_url
-            })
+        })
         self.urls = urls
         # stop of generating dict of urls
 
@@ -103,7 +109,7 @@ class GeeklistSpider(scrapy.Spider):
         callstack.extend([
             {'url': urls['user'], 'callback': self.parse_user_page},
             {'url': urls['micros'], 'callback': self.parse_user_micros}])
-        return self.callnext(response=meta)
+        return self.callnext(starting_meta=meta)
 
     def parse_user_page(self, response):
 
@@ -132,15 +138,15 @@ class GeeklistSpider(scrapy.Spider):
             'user_micros': [],
             'user_contribs': [],
             'user_cards': [],
-            })
+        })
 
         next_urls = []
-        if stats.get('number_of_cards') is not 0:
+        if stats.get('number_of_cards') != 0:
             next_urls.append(
                 {'url': self.urls['cards'],
                  'callback': self.parse_user_cards})
 
-        if stats.get('number_of_contributions') is not 0:
+        if stats.get('number_of_contributions') != 0:
             next_urls.append(
                 {'url': self.urls['contribs'],
                  'callback': self.parse_user_contribs})
@@ -161,18 +167,18 @@ class GeeklistSpider(scrapy.Spider):
 
         data_micro = jr.get('data').get('micros')
 
-        for i in data_micro:
+        for micro in data_micro:
             items.append({
-                'micro_status': i.get('status'),
-                'micro_slug': i.get('slig'),
-                'micro_permalink': i.get('permalink'),
-                'micro_uuid': i.get('_id'),
-                'micro_trending_at': i.get('trending_at'),
-                'micro_trending_by': i.get('trending_by'),
-                'micro_updated_at': i.get('updated_at'),
-                'micro_updated_by': i.get('updated_by'),
-                'micro_stats': i.get('stats'),
-                })
+                'micro_status': micro.get('status'),
+                'micro_slug': micro.get('slig'),
+                'micro_permalink': micro.get('permalink'),
+                'micro_uuid': micro.get('_id'),
+                'micro_trending_at': micro.get('trending_at'),
+                'micro_trending_by': micro.get('trending_by'),
+                'micro_updated_at': micro.get('updated_at'),
+                'micro_updated_by': micro.get('updated_by'),
+                'micro_stats': micro.get('stats'),
+            })
 
         total_counts = data.get('total_micros')
 
@@ -191,22 +197,22 @@ class GeeklistSpider(scrapy.Spider):
         items = loader['UserInfo']['user_contribs']
 
         data_contribs = jr.get('data').get('cards')
-        for i in data_contribs:
+        for contrib in data_contribs:
             items.append({
-                'contrib_uuid': i.get('_id'),
-                'contrib_author_uuid': i.get('author_id'),
-                'contrib_created_at': i.get('created_at'),
-                'contrib_headline': i.get('headline'),
-                'contrib_permalink': i.get('permalink'),
-                'contrib_stats': i.get('stats'),
-                'contrib_trending_history': i.get('trending_history'),
-                'contrib_link': i.get('link'),
-                'contrib_skills': i.get('skills'),
-                'contrib_tasks': i.get('tasks'),
-                'contrib_updated_at': i.get('updated_at'),
-                'contrib_endorsement': i.get('endorsement'),
-                'contrib_given_to': i.get('given_to'),
-                })
+                'contrib_uuid': contrib.get('_id'),
+                'contrib_author_uuid': contrib.get('author_id'),
+                'contrib_created_at': contrib.get('created_at'),
+                'contrib_headline': contrib.get('headline'),
+                'contrib_permalink': contrib.get('permalink'),
+                'contrib_stats': contrib.get('stats'),
+                'contrib_trending_history': contrib.get('trending_history'),
+                'contrib_link': contrib.get('link'),
+                'contrib_skills': contrib.get('skills'),
+                'contrib_tasks': contrib.get('tasks'),
+                'contrib_updated_at': contrib.get('updated_at'),
+                'contrib_endorsement': contrib.get('endorsement'),
+                'contrib_given_to': contrib.get('given_to'),
+            })
         total_counts = jr.get('data').get('total_cards')
 
         if len(items) < total_counts:
@@ -223,22 +229,22 @@ class GeeklistSpider(scrapy.Spider):
         items = loader['UserInfo']['user_cards']
 
         cards = jr.get('data').get('cards')
-        for i in cards:
+        for card in cards:
             items.append({
-                'card_stats': i.get('stats'),
-                'card_headline': i.get('headline'),
-                'card_tasks': i.get('tasks'),
-                'card_created_at': i.get('created_at'),
-                'card_updated_at': i.get('updated_at'),
-                'card_trending_at': i.get('trending_at'),
-                'card_skills': i.get('skills'),
-                'card_link': i.get('link'),
-                'card_endorsement': i.get('endorsement'),
-                'card_given_to': i.get('given_to'),
-                'card_uuid': i.get('_id'),
-                'card_author_uuid': i.get('author_id'),
-                'card_permalink': i.get('permalink')
-                })
+                'card_stats': card.get('stats'),
+                'card_headline': card.get('headline'),
+                'card_tasks': card.get('tasks'),
+                'card_created_at': card.get('created_at'),
+                'card_updated_at': card.get('updated_at'),
+                'card_trending_at': card.get('trending_at'),
+                'card_skills': card.get('skills'),
+                'card_link': card.get('link'),
+                'card_endorsement': card.get('endorsement'),
+                'card_given_to': card.get('given_to'),
+                'card_uuid': card.get('_id'),
+                'card_author_uuid': card.get('author_id'),
+                'card_permalink': card.get('permalink')
+            })
 
         total_counts = jr.get('data').get('total_cards')
         if len(items) < total_counts:
