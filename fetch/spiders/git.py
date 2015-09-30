@@ -17,10 +17,10 @@ class GitSpider(scrapy.Spider):
     def callnext(self, response=None, caller=None,
                  html=False, start_meta=None):
         # trick to override the default parsing method :D
-        try:
-            meta = response.request.meta
-        except AttributeError:
+        if start_meta:
             meta = start_meta
+        elif not start_meta and response:
+            meta = response.request.meta
 
         callstack = meta['callstack']
 
@@ -36,6 +36,8 @@ class GitSpider(scrapy.Spider):
         if len(callstack) > 0:
             target = callstack.pop(0)
             url = target['url']
+            # automatically add this string to url,
+            # so that page_plus_one will work
             if 'per_page=' and 'page=' not in url:
                 url = url + '?per_page=100&page=1'
             yield scrapy.Request(
@@ -43,13 +45,11 @@ class GitSpider(scrapy.Spider):
                 callback=target['callback'], errback=self.callnext)
 
         else:
-            item = GithubItem()
+            items = GithubItem()
             loader = response.meta.get('Loader')
-            item['GistInfo'] = loader['GistInfo']
-            item['UserInfo'] = loader['UserInfo']
-            item['RepoInfo'] = loader['RepoInfo']
-            item['identifier'] = loader['identifier']
-            yield item
+            for key in loader.iterkeys():
+                items[key] = loader[key]
+            yield items
 
     def page_plus_one(self, header, url):
         # called only when response.headers.get('Link') returns valid
@@ -63,7 +63,7 @@ class GitSpider(scrapy.Spider):
         return new_page
 
     def start_requests(self):
-        # override scrapy's own method to start requests.
+
         meta = scrapy.Request.meta
         # declaring item loader's layout.
         meta = {
@@ -76,7 +76,6 @@ class GitSpider(scrapy.Spider):
             }
         }
         callstack = meta['callstack']
-
         calls = self.parse_arguments()
         callstack.extend(calls)
         return self.callnext(start_meta=meta)
@@ -98,14 +97,14 @@ class GitSpider(scrapy.Spider):
             'repo': (repo_url, self.crawl_user_repo)
         }
         if 'all' in self.mode:
-            for i in url_dict.itervalues():
+            for value in url_dict.itervalues():
                 actions.append({
-                    'url': i[0], 'callback': i[1]
+                    'url': value[0], 'callback': value[1]
                 })
         else:
-            for i in self.mode:
-                if i in url_dict.iterkeys():
-                    detail = url_dict[i]
+            for mode in self.mode:
+                if mode in url_dict.iterkeys():
+                    detail = url_dict[mode]
                     actions.append({
                         'url': detail[0], 'callback': detail[1]
                     })
@@ -116,61 +115,61 @@ class GitSpider(scrapy.Spider):
 # Start declaring methods to parse JSON items.
 # ----------------------------------------------------------------
 
-    def parse_mini_repo(self, input):
+    def parse_mini_repo(self, input_):
         result = {
-            'repo_id': input.get('id'),
-            'repo_name': input.get('name')
+            'repo_id': input_.get('id'),
+            'repo_name': input_.get('name')
         }
         return result
 
 # ------- functions for parsing events.
-    def parse_milestone(self, input):
-        creator = input.get('creator')
+    def parse_milestone(self, input_):
+        creator = input_.get('creator')
         creator_info = self.parse_mini_user(creator)
         result = {
-            'title': input.get('title'),
-            'description': input.get('description'),
-            'open_issues': input.get('open_issues'),
-            'closed_issues': input.get('closed_issues'),
-            'state': input.get('state'),
-            'created_at': input.get('created_at'),
-            'updated_at': input.get('updated_at'),
+            'title': input_.get('title'),
+            'description': input_.get('description'),
+            'open_issues': input_.get('open_issues'),
+            'closed_issues': input_.get('closed_issues'),
+            'state': input_.get('state'),
+            'created_at': input_.get('created_at'),
+            'updated_at': input_.get('updated_at'),
             'creator': creator_info
         }
         return result
 
-    def parse_issue_label(self, input):
+    def parse_issue_label(self, input_):
         result = {
-            'name': input.get('name'),
-            'color': input.get('color')
+            'name': input_.get('name'),
+            'color': input_.get('color')
         }
         return result
 
-    def parse_event_payload_issue(self, input):
+    def parse_event_payload_issue(self, input_):
 
         result = {
-            'created_at': input.get('created_at'),
-            'updated_at': input.get('updated_at'),
-            'closed_at': input.get('closed_at'),
-            'comments': input.get('comments'),
-            'issue_id': input.get('id'),
-            'number': input.get('number'),
-            'title': input.get('title'),
-            'body': input.get('body'),
-            'action': input.get('action')
+            'created_at': input_.get('created_at'),
+            'updated_at': input_.get('updated_at'),
+            'closed_at': input_.get('closed_at'),
+            'comments': input_.get('comments'),
+            'issue_id': input_.get('id'),
+            'number': input_.get('number'),
+            'title': input_.get('title'),
+            'body': input_.get('body'),
+            'action': input_.get('action')
         }
 
-        user = input.get('user')
+        user = input_.get('user')
         if user:
             user_info = self.parse_mini_user(user)
             result['user'] = user_info
 
-        assignee = input.get('assignee')
+        assignee = input_.get('assignee')
         if assignee:
             assignee_info = self.parse_mini_user(assignee)
             result['assignee'] = assignee_info
 
-        labels = input.get('labels')
+        labels = input_.get('labels')
         if labels:
             for i in labels:
                 labels_info = self.parse_issue_label(i)
@@ -178,59 +177,59 @@ class GitSpider(scrapy.Spider):
 
         return result
 
-    def parse_push_commits(self, input):
+    def parse_push_commits(self, input_):
         result = {
-            'sha': input.get('sha'),
-            'author': input.get('author'),
-            'message': input.get('message'),
-            'distinct': input.get('distinct'),
-            'url': input.get('url')
+            'sha': input_.get('sha'),
+            'author': input_.get('author'),
+            'message': input_.get('message'),
+            'distinct': input_.get('distinct'),
+            'url': input_.get('url')
         }
         return result
 
-    def parse_event_payload_push(self, input):
-        commits = input.get('commits')
+    def parse_event_payload_push(self, input_):
+        commits = input_.get('commits')
         commits_list = []
         for i in commits:
             info = self.parse_push_commits(i)
             commits_list.append(info)
 
         result = {
-            'push_id': input.get('push_id'),
-            'size': input.get('size'),
-            'disinct_size': input.get('disinct_size'),
-            'ref': input.get('ref'),
-            'head_after': input.get('head'),
-            'head_before': input.get('before'),
+            'push_id': input_.get('push_id'),
+            'size': input_.get('size'),
+            'disinct_size': input_.get('disinct_size'),
+            'ref': input_.get('ref'),
+            'head_after': input_.get('head'),
+            'head_before': input_.get('before'),
             'commits': commits_list,
-            'created_at': input.get('created_at')
+            'created_at': input_.get('created_at')
         }
         return result
 
-    def parse_event(self, input):
+    def parse_event(self, input_):
 
-        event_type = input['type']
-        payload = input['payload']
+        event_type = input_['type']
+        payload = input_['payload']
         if event_type == 'PushEvent':
             payload_info = self.parse_event_payload_push(payload)
         elif event_type == 'IssuesEvent':
             payload_info = self.parse_event_payload_issue(payload)
 
-        repo = input['repo']
+        repo = input_['repo']
         repo_info = self.parse_mini_user(repo)
-        actor = input['actor']
+        actor = input_['actor']
         actor_info = self.parse_mini_user(actor)
 
-        org = input.get('org')
+        org = input_.get('org')
         if org:
             org_info = self.parse_mini_user(org)
         else:
             org_info = None
 
         result = {
-            'event_id': input['id'],
+            'event_id': input_['id'],
             'type': event_type,
-            'created_at': input['created_at'],
+            'created_at': input_['created_at'],
             'repo': repo_info,
             'org': org_info,
             'payload': payload_info,
@@ -240,51 +239,51 @@ class GitSpider(scrapy.Spider):
 
 # ------- functions for parsing events.
 
-    def parse_user(self, input):
+    def parse_user(self, input_):
         item = {
-            'user_html_url': input.get('html_url'),
-            'user_public_repo_count': input.get('public_repos'),
-            'user_public_gist_count': input.get('public_gists'),
-            'user_email': input.get('email'),
-            'user_followers_count': input.get('followers'),
-            'user_company': input.get('compant'),
-            'user_hireable': input.get('hireable'),
-            'user_id': input.get('id'),
-            'user_login': input.get('login'),
-            'user_display_name': input.get('name'),
-            'user_blog': input.get('blog'),
-            'user_location': input.get('location'),
-            'user_bio': input.get('bio'),
-            'user_following_count': input.get('following'),
-            'user_created': input.get('created_at'),
-            'user_updated': input.get('updated_at'),
-            'user_url': input.get('url')
+            'user_html_url': input_.get('html_url'),
+            'user_public_repo_count': input_.get('public_repos'),
+            'user_public_gist_count': input_.get('public_gists'),
+            'user_email': input_.get('email'),
+            'user_followers_count': input_.get('followers'),
+            'user_company': input_.get('compant'),
+            'user_hireable': input_.get('hireable'),
+            'user_id': input_.get('id'),
+            'user_login': input_.get('login'),
+            'user_display_name': input_.get('name'),
+            'user_blog': input_.get('blog'),
+            'user_location': input_.get('location'),
+            'user_bio': input_.get('bio'),
+            'user_following_count': input_.get('following'),
+            'user_created': input_.get('created_at'),
+            'user_updated': input_.get('updated_at'),
+            'user_url': input_.get('url')
         }
         # item = dict((k, v) for k, v in item.iteritems() if v is not None)
 
         return item
 
-    def parse_mini_user(self, input):
+    def parse_mini_user(self, input_):
         # parses mini user object
         result = {
-            'user_id': input.get('id'),
-            'user_login': input.get('login')
+            'user_id': input_.get('id'),
+            'user_login': input_.get('login')
         }
         return result
 
-    def parse_contributor(self, input):
+    def parse_contributor(self, input_):
         # parses contributor
         result = {
-            'user_id': input.get('id'),
-            'user_login': input.get('login'),
-            'times_contributed': input.get('contributions')
+            'user_id': input_.get('id'),
+            'user_login': input_.get('login'),
+            'times_contributed': input_.get('contributions')
         }
         return result
 
-    def parse_gist(self, input):
+    def parse_gist(self, input_):
         # parses one gist object, returns a 2-list:
         # list[0]: gist object ; list[1]: [gist comment URL, gist id]
-        files = input['files'].values()
+        files = input_['files'].values()
 
         file_info = []
         for i in files:
@@ -296,12 +295,12 @@ class GitSpider(scrapy.Spider):
             }
         file_info.append(info)
 
-        comments = input.get('comments')
-        comment_url = input.get('comments_url') if comments > 0 else None
+        comments = input_.get('comments')
+        comment_url = input_.get('comments_url') if comments > 0 else None
 
         gist = {
-            'gist_id': input.get('id'),
-            'gist_created': input.get('created_at'),
+            'gist_id': input_.get('id'),
+            'gist_created': input_.get('created_at'),
             'gist_comment_counts': comments,
             'gist_comment_url': comment_url,
             'gist_file_info': file_info
@@ -310,27 +309,27 @@ class GitSpider(scrapy.Spider):
         result = [gist, comment_url]
         return result
 
-    def parse_gist_comment(self, input):
-        user = input['user']
+    def parse_gist_comment(self, input_):
+        user = input_['user']
         user_info = {
             'user_id': user.get('id'),
             'user_login': user.get('login')
         }
         result = {
-            'time': input.get('created_at'),
-            'content': input.get('body'),
-            'comment_id': input.get('id'),
+            'time': input_.get('created_at'),
+            'content': input_.get('body'),
+            'comment_id': input_.get('id'),
             'user': user_info
         }
         return result
 
-    def parse_repository(self, input, detailing=False):
+    def parse_repository(self, input_, detailing=False):
         # returns list, [result, status]
-        forked = input['fork']
-        stargazers_count = input['stargazers_count']
-        forks_count = input['forks_count']
-        open_issues_count = input['open_issues_count']
-        html_url = input['html_url']
+        forked = input_['fork']
+        stargazers_count = input_['stargazers_count']
+        forks_count = input_['forks_count']
+        open_issues_count = input_['open_issues_count']
+        html_url = input_['html_url']
         status = {
             'fork': forked,
             'starred': bool(stargazers_count),
@@ -338,32 +337,32 @@ class GitSpider(scrapy.Spider):
             'open_issues': bool(open_issues_count)
         }
         extras_url = {
-            'stargazers_url': input['stargazers_url'],
-            'contributors_url': input['contributors_url']
+            'stargazers_url': input_['stargazers_url'],
+            'contributors_url': input_['contributors_url']
         }
 
         repo = {
-            'id': input['id'],
-            'name': input['name'],
-            'created_at': input['created_at'],
-            'updated_at': input['updated_at'],
-            'pushed_at': input['pushed_at'],
-            'homepage': input['homepage'],
+            'id': input_['id'],
+            'name': input_['name'],
+            'created_at': input_['created_at'],
+            'updated_at': input_['updated_at'],
+            'pushed_at': input_['pushed_at'],
+            'homepage': input_['homepage'],
             'stargazers_count': stargazers_count,
-            'watchers_count': input['watchers_count'],
-            'language': input['language'],
+            'watchers_count': input_['watchers_count'],
+            'language': input_['language'],
             'forks_count': forks_count,
             'forked': forked,
             'open_issues_count': open_issues_count,
             'html_url': html_url,
             'zipurl': html_url + "/archive/master.zip",
-            'url': input['url'],
-            'description': input['description'],
+            'url': input_['url'],
+            'description': input_['description'],
             'extras_url': extras_url
         }
 
         if detailing is True:
-            owner = input.pop('owner')
+            owner = input_.pop('owner')
             owner_info = self.parse_mini_user(owner)
             repo.update({
                 owner: owner_info
@@ -473,12 +472,11 @@ class GitSpider(scrapy.Spider):
         ).extract()
         info_list = [name for name in info_list if name.strip()]
 
-        for i in range(0, len(name_list)):
+        for name in range(0, len(name_list)):
             username = response.selector.xpath(
                 '//h3[@class="follow-list-name"]/span/a/@href'
-            ).extract()[i][1:]
-            # i shall repair thie in a more elegant way.
-            # repaired temporary aug 17 2015
+            ).extract()[name][1:]
+            # name shall do this in a more elegant way.
             # start
             try:
                 user = filter(lambda x: x['user_login'] == username, items)[0]
@@ -489,8 +487,8 @@ class GitSpider(scrapy.Spider):
                 user = filter(lambda x: x['user_login'] == username, items)[0]
 
             user.update({
-                'user_display_name': name_list[i],
-                'user_info': info_list[i],
+                'user_display_name': name_list[name],
+                'user_info': info_list[name],
             })
             # end
         html_pagination = response.selector.xpath(
@@ -520,8 +518,8 @@ class GitSpider(scrapy.Spider):
 
         user_list = items.setdefault(key_name, [])
 
-        for i in jr:
-            user = self.parse_mini_user(i)
+        for mini_user in jr:
+            user = self.parse_mini_user(mini_user)
             user_list.append(user)
 
         return self.callnext(response, caller=self.crawl_user_fellows)
@@ -535,8 +533,8 @@ class GitSpider(scrapy.Spider):
         loader = response.meta['Loader']
         items = loader['GistInfo']
 
-        for i in jr:
-            gist = self.parse_gist(i)
+        for one_gist in jr:
+            gist = self.parse_gist(one_gist)
             if gist[1] is not None:
                 url = gist[1]
                 callstack.insert(0, {
@@ -556,8 +554,8 @@ class GitSpider(scrapy.Spider):
         target_gist = filter(lambda x: x['gist_id'] == gist_id, items)[0]
 
         comments = []
-        for i in jr:
-            comment = self.parse_gist_comment(i)
+        for one_comment in jr:
+            comment = self.parse_gist_comment(one_comment)
             comments.append(comment)
         target_gist['comments'] = comments
 
@@ -591,8 +589,8 @@ class GitSpider(scrapy.Spider):
         loader = response.meta['Loader']
         items = loader['RepoInfo']
 
-        for i in jr:
-            result = self.parse_repository(i)
+        for repo in jr:
+            result = self.parse_repository(repo)
             repo_info = result[0]
             repo_name = repo_info['name']
             repo_extra_url = repo_info['extras_url']
@@ -601,7 +599,7 @@ class GitSpider(scrapy.Spider):
                 repo_name: repo_info
             })
             action = []
-            for i in status:
+            for status_value in status:
                 if 'forked' == True:
                     repo_url = repo_info.get('url')
                     action.append({
@@ -647,8 +645,8 @@ class GitSpider(scrapy.Spider):
         item = items[repo_name].setdefault('forks', [])
         jr = json.loads(response.body_as_unicode())
 
-        for i in jr:
-            result = self.parse_repository(i, detailing=True)
+        for forking_repo in jr:
+            result = self.parse_repository(forking_repo, detailing=True)
             item.append(result)
 
         return self.callnext(response, caller=self.crawl_repo_forks)
@@ -670,8 +668,8 @@ class GitSpider(scrapy.Spider):
         # check whether this repo has contributors
         if times_contributed > 0:
             contributors = item.setdefault('contributed_users', [])
-            for i in jr:
-                result = self.parse_contributor(i)
+            for contributing_user in jr:
+                result = self.parse_contributor(contributing_user)
                 contributors.append(result)
         return self.callnext(response, caller=self.crawl_repo_contributors)
 
@@ -703,8 +701,8 @@ class GitSpider(scrapy.Spider):
         item = loader['RepoInfo'][repo_name].setdefault('stargazers', [])
         jr = json.loads(response.body_as_unicode())
 
-        for i in jr:
-            result = self.parse_mini_user(i)
+        for starring_user in jr:
+            result = self.parse_mini_user(starring_user)
             item.append(result)
 
         return self.callnext(response, caller=self.crawl_repo_stars)
@@ -717,10 +715,10 @@ class GitSpider(scrapy.Spider):
 
         allowed = ['PushEvent', 'IssuesEvent']
 
-        for i in jr:
-            event_type = i['type']
+        for event in jr:
+            event_type = event['type']
             if event_type in allowed:
-                event = self.parse_event(i)
+                event = self.parse_event(event)
                 items.append(event)
 
         return self.callnext(response, caller=self.crawl_user_events)
