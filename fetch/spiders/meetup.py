@@ -2,7 +2,7 @@
 import scrapy
 from fetch.items import MeetupItem
 import re
-import json
+import ujson as json
 
 
 class MeetupSpider(scrapy.Spider):
@@ -18,13 +18,15 @@ class MeetupSpider(scrapy.Spider):
         super(MeetupSpider, self).set_crawler(crawler)
         crawler.settings.set('DOWNLOAD_DELAY', 350)
 
-    def callnext(self, response, caller=None):
+    def callnext(self, response=None, start_meta=None, callback=None):
 
         # trick to override the default parsing method :D
-        try:
+        if start_meta:
+            meta = start_meta
+        elif not start_meta and response:
             meta = response.request.meta
-        except AttributeError:
-            meta = response
+        else:
+            raise Exception
 
         if len(meta['callstack']) > 0:
             target = meta['callstack'].pop(0)
@@ -33,17 +35,14 @@ class MeetupSpider(scrapy.Spider):
                 url=url, meta=meta,
                 callback=target['callback'], errback=self.callnext)
         else:
-            # from pudb import set_trace; set_trace()
             items = MeetupItem()
             loader = response.meta.get('Loader')
-            items['UserInfo'] = loader['UserInfo']
-            items['GroupInfo'] = loader['GroupInfo']
-            items['identifier'] = loader['identifier']
+            for key in loader.iterkeys():
+                items[key] = loader[key]
             yield items
 
     def start_requests(self):
         # trick to override default parse method :D
-        # from pudb import set_trace; set_trace()
 
         meta = scrapy.Request.meta
         meta = {
@@ -70,17 +69,23 @@ class MeetupSpider(scrapy.Spider):
             {'url': group_url, 'callback': self.crawl_user_group_summary},
             {'url': member_url, 'callback': self.crawl_user_info}])
 
-        return self.callnext(response=meta)
+        return self.callnext(start_meta=meta)
 
-    def nextpage(self, url):
+    def next_page(self, response, caller):
+        """
+        Takes URL and +1 the pagination number
 
-        old_page = int(re.findall('(?<=offset=)\d+(?=&)', url)[0])
-        return re.sub('(?<=offset=)\d+(?=&)', (str(old_page + 1)), url)
-
-    def add_next_page(self, response, caller):
+        Args:
+            url (str):  The URL to '+1'
+        Returns:
+            str: The URL which has been +1'd
+        """
 
         callstack = response.meta['callstack']
-        new_url = self.nextpage(response.url)
+
+        old_page = int(re.findall('(?<=offset=)\d+(?=&)', response.url)[0])
+        new_url = re.sub(
+            '(?<=offset=)\d+(?=&)', (str(old_page + 1)), response.url)
         callstack.append({
             'url': new_url, 'callback': caller})
 
@@ -111,7 +116,7 @@ class MeetupSpider(scrapy.Spider):
                     callstack.append({
                         'url': group_member_url, 'callback': self.crawl_group_member})
         if jr['meta']['next']:
-            self.add_next_page(response, self.crawl_user_group_summary)
+            self.next_page(response, self.crawl_user_group_summary)
 
         return self.callnext(response)
 
@@ -128,6 +133,6 @@ class MeetupSpider(scrapy.Spider):
             member_list.append(members)
 
         if jr['meta']['next']:
-            self.add_next_page(response, self.crawl_group_member)
+            self.next_page(response, self.crawl_group_member)
 
         return self.callnext(response)
