@@ -129,14 +129,13 @@ class FacebookSpider(scrapy.Spider):
     def parse_mobile(self, response):
 
         loader = response.meta['Loader']
-
         items = loader.setdefault('UserInfo', {})
 
         # parse dispay name
         name = response.xpath(
             '//div[@id="root"]//strong[@class]/text()').extract_first()
 
-        # parse work!
+        # parse work
         works = []
         for work in response.xpath(
                 '//div[@id="work"]//div[starts-with(@id, "exp")]'):
@@ -156,7 +155,7 @@ class FacebookSpider(scrapy.Spider):
             }
             works.append(work)
 
-        # parse education!
+        # parse education
         edus = []
         for school in response.xpath(
                 '//div[@id="education"]//div[starts-with(@id, "exp")]'):
@@ -173,12 +172,12 @@ class FacebookSpider(scrapy.Spider):
             }
             edus.append(edu)
 
-        # parse skillz!
+        # parse skillz
         skills = response.xpath(
             '//div[@id="skills"]/div/div[2]//span/text()'
         ).extract_first()
 
-        # parse living ah!
+        # parse living
         current_city = response.xpath(
             '//div[@id="living"]//div[@title="Current City"]//a/text()'
         ).extract_first()
@@ -247,21 +246,13 @@ class FacebookSpider(scrapy.Spider):
         loader = response.meta['Loader']
         items = loader.setdefault('EventInfo', {})
         callstack = response.meta['callstack']
-        #  for events in response.xpath('//div[@class="bg bo"]'):
 
         for events in response.xpath(
                 '//td[@id="events_card_list"]/div[@class][not(id)]'
                 '[contains(@class," ")][string-length(@class) = 5]'):
-                # wtf?
 
             title = events.xpath(
                 'div/div[1]//h4/text()').extract_first()
-            #  event_month = events.xpath(
-            #      'div/div[2]/span/span[1]/text()').extract_first()
-            #  event_day = events.xpath(
-            #      'div/div[2]/span/span[2]/text()').extract_first()
-            #  event_time = events.xpath(
-            #      'div/div[2]/div[1]/span/text()').extract_first()
             event_loc = events.xpath(
                 'div/div[2]/div[2]/span/text()').extract_first()
             event_city = events.xpath(
@@ -269,9 +260,6 @@ class FacebookSpider(scrapy.Spider):
             event_id = re.findall('(?<=events\/).*?(?=\?)', events.xpath(
                 'div/div[2]//a/@href').extract_first())[0]
             result = {
-                #  'month': event_month,
-                #  'day': event_day,
-                #  'time': event_time,
                 'loc': event_loc,
                 'city': event_city,
                 'id': event_id,
@@ -315,25 +303,30 @@ class FacebookSpider(scrapy.Spider):
                 'name': name})
         return self.callnext(response)
 
-    def fix_json(self, input):
+    def fix_json(self, input_):
         """
-        Eradicates Facebook's broken, sinful JSON and brings it to light.
+        Eradicates Facebook's broken JSON.
+        Args:
+            input_(dict): raw JSON
+        Returns:
+            dict: Fixed JSON
         """
-        for v in input.itervalues():
+        for v in input_.itervalues():
             temp = {}
             for section in v['sections']:
                 name = section[0]
                 value = section[1]
                 temp[name] = value
             v['sections'] = temp
-        return input
+        return input_
 
     def parse_event_json(self, payload, event_id, callstack):
         """
         Recursively parses Facebook's event participants JSON object.
         Currently, it only scans through objects,
         see if 'cursor' exists and appends cursor to callstack.
-        @input: whole JSON
+        Args:
+            payload(dict): raw JSON
         """
         cursors = []
         for section, value in payload.iteritems():
@@ -384,7 +377,6 @@ class FacebookSpider(scrapy.Spider):
         return
 
     def crawl_event_json(self, response):
-        # monkey hack :D see the magic here.
         """
         Magic JSON function to crawl an event's participants.
         """
