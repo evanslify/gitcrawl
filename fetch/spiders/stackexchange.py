@@ -4,7 +4,6 @@ import json
 
 class StackExchangeSpider(scrapy.Spider):
     name = "stackexchange"
-    # debug = True
 
     def __init__(self, *args, **kwargs):
 
@@ -12,15 +11,6 @@ class StackExchangeSpider(scrapy.Spider):
         self.target = kwargs.get('target')
         self.site = kwargs.get('site')
         self.debug = kwargs.get('debug')
-
-        if not self.debug and self.site:
-            self.site = self.site.split(';')
-        else:
-            self.site = None
-
-        if not self.target and not self.site:
-            error = '%s%s' % (self.target, self.site)
-            raise Exception(error)
 
     def start_requests(self):
 
@@ -43,13 +33,15 @@ class StackExchangeSpider(scrapy.Spider):
             'pagesize=100&filter=!GeAzHAla9bmIm' % account_id)
         yield scrapy.Request(url=url, callback=self.crawl_user_id)
 
-    def extract_site_name(self, input):
+    def extract_site_name(self, input_):
         '''
-        @input: URL
-        @returns: str
         This function parses URL and returns the sitename.
+        Args:
+            input_(str): raw URl
+        Returns:
+            str: StackExchange site name extracted from URL
         '''
-        fragments = input.split('.')
+        fragments = input_.split('.')
         length = len(fragments)
 
         if length == 2:
@@ -59,15 +51,14 @@ class StackExchangeSpider(scrapy.Spider):
             # long url, like "http://meta.stackexchange.com"
             result = fragments[-3]
         else:
-            urlerror = 'Weird URL. %s' % input
+            urlerror = 'Weird URL. %s' % input_
             raise Exception(urlerror)
 
         # "http://stackoverflow" -> "stackoverflow"
         return result[7:]
 
     def dummy(self, response):
-        # to shut scrapy.FormRequest up, or it
-        # raises exception
+        # fake callback for  scrapy.FormRequest
         pass
 
     def crawl_user_id(self, response):
@@ -81,7 +72,6 @@ class StackExchangeSpider(scrapy.Spider):
             site_name = self.extract_site_name(item['site_url'])
             container[site_name] = user_id
             if self.site and site_name in self.site:
-                # August 25th 2015
                 # Calls scrapyd!
                 yield scrapy.FormRequest(
                     'http://localhost:6800/schedule.json',
