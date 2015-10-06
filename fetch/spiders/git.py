@@ -21,6 +21,8 @@ class GitSpider(scrapy.Spider):
             meta = start_meta
         elif not start_meta and response:
             meta = response.request.meta
+        else:
+            raise Exception
 
         callstack = meta['callstack']
 

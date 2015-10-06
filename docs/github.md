@@ -1,8 +1,8 @@
 ## Github
+
     Usage:
-    mode: all <parsing mode, one of following:>
-        all
-        user
-        gist
-        repo
-    target: <github username>
+        scrapy crawl -a target=<username> -a mode=<mode> github
+
+    Args:
+        target: Github username
+        mode: all; ('user', 'gist', 'repo'). What 'part' of infomation to crawl.

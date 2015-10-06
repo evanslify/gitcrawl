@@ -1,11 +1,11 @@
 ## Slideshare CrawlBot
 
 * * *
+    Usage:
+        scrapy crawl -a target=<username> speakerdeck
 
-    Usage
-        target: <Speakerdeck user login>
-    Type: 
-        Website scraping
+    Args:
+        target: speakerdeck username
 
 * * * 
 

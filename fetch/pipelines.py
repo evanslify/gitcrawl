@@ -30,7 +30,7 @@ class RedisPipeline(object):
             redis_port=crawler.settings.get('REDIS_DB_PORT', 6379),
             redis_auth=crawler.settings.get('REDIS_DB_AUTH', ''),
             redis_db=crawler.settings.get('REDIS_DB_INDEX', 0)
-            )
+        )
 
     def open_spider(self, spider):
         pass
@@ -53,8 +53,8 @@ class RedisPipeline(object):
         if spider_name in db_dict.iterkeys():
             db = db_dict[spider_name]
             self.pool = redis.ConnectionPool(
-                    host=self.redis_uri, port=self.redis_port,
-                    db=db, password=self.redis_auth)
+                host=self.redis_uri, port=self.redis_port,
+                db=db, password=self.redis_auth)
             self.r = redis.StrictRedis(connection_pool=self.pool)
         else:
             db_not_found_error = (

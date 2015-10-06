@@ -7,11 +7,13 @@
 
 from scrapy.item import Item, Field
 
+
 class FlexibleItem(Item):
     def __setitem__(self, key, value):
         if key not in self.fields:
             self.fields[key] = Field()
         super(FlexibleItem, self).__setitem__(key, value)
+
 
 class GithubItem(Item):
     UserInfo = Field()
@@ -20,24 +22,16 @@ class GithubItem(Item):
     identifier = Field()
 
 
-class BitbucketItem(Item):
-    UserInfo = Field()
-    RepoInfo = Field()
-    identifier = Field()
+class BitbucketItem(FlexibleItem):
+    pass
 
 
-class GeeklistItem(Item):
-    UserInfo = Field()
-    identifier = Field()
+class GeeklistItem(FlexibleItem):
+    pass
 
 
 class FacebookItem(FlexibleItem):
     pass
-    #  UserInfo = Field()
-    #  FacebookInfo = Field()
-    #  EventInfo = Field()
-    #  FriendInfo = Field()
-    #  identifier = Field()
 
 
 class StackOverflowItem(Item):
@@ -46,11 +40,8 @@ class StackOverflowItem(Item):
     identifier = Field()
 
 
-class LeetCodeItem(Item):
-    UserInfo = Field()
-    QuestionInfo = Field()
-    AnswerInfo = Field()
-    identifier = Field()
+class LeetCodeItem(FlexibleItem):
+    pass
 
 
 class slideshareItem(Item):
@@ -65,10 +56,8 @@ class SpeakerdeckItems(Item):
     identifier = Field()
 
 
-class MeetupItem(Item):
-    UserInfo = Field()
-    GroupInfo = Field()
-    identifier = Field()
+class MeetupItem(FlexibleItem):
+    pass
 
 
 class HashListItem(Item):

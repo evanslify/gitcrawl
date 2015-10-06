@@ -1,12 +1,14 @@
 ## Facebook CrawlBot
 * * *
 
+    The spider looks for cookies which is stored in Redis beforehand.
+    Raises Exception if the corresponding cookie is not found in Redis for the target.
+
     Usage:
-        Run on it's own.
-        Fetch cookies from Redis(which takes input from HTTP API POST for now)
-        immediately on run.
-    Type: 
-        Mobile-website scraping
+        scrapy crawl -a target=<facebook userID> facebook
+
+    Args:
+        target: Facebook userID
 
 * * * 
 

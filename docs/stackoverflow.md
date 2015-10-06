@@ -1,9 +1,14 @@
 ## StackOverflow API Crawler
+
 * * *
-    target: <stackoverflow user display name>
-    size: 30 <int, maxinum # of questions/answers to fetch>
-    sort: activity <to sort discussion topics, use one of the following:>
-        activity – last_activity_date
-        creation – creation_date
-        votes – score
+
+    Usage:
+        scrapy crawl -a target=<username> -a site=<sitename> -a size=<size> -a sorting=<sorting> stackexchangesites
+
+    Args:
+        target: stackexchange userID on that specific site
+        size: 30, the # of questions/answers to look for
+        sorting: activity (or 'creation', 'votes'), the way the spider look for questions/answers first
+        site: the stackexchange site to crawl with. e.g. stackoverflow, askubuntu, serverfault
+
 * * *

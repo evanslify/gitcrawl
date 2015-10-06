@@ -1,15 +1,12 @@
 ## LeetCode CrawlBot
 
 * * *
+    Usage:
+        scrapy crawl -a target=<username> -a mode=<mode> leetcode
 
-    Usage
-        target: <LeetCode user login>
-        mode: (all)
-            user
-            answer
-            question
-    Type: 
-        Website scraping
+    Args:
+        target: leetcode usermode
+        mode: (all) user answer question
 
 * * * 
 

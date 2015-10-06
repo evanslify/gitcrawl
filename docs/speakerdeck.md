@@ -2,12 +2,13 @@
 
 * * *
 
-    Usage
-        target: <Speakerdeck user login>
-    Type: 
-        Website scraping
+    Note: Speakerdeck is slow.
 
-    Speakerdeck is slow, so this bot won't be fast like it's siblings.
+    Usage:
+        scrapy crawl -a target=<username> speaerdeck
+
+    Args:
+        target: Speakerdeck username
 
 * * * 
 
