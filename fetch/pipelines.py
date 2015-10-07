@@ -7,6 +7,7 @@
 import redis
 import time
 import ujson as json
+import warnings
 
 
 class FetchPipeline(object):
@@ -56,10 +57,10 @@ class RedisPipeline(object):
                 host=self.redis_uri, port=self.redis_port,
                 db=db, password=self.redis_auth)
             self.r = redis.StrictRedis(connection_pool=self.pool)
-        else:
+        elif not getattr(spider, 'debug', False):
             db_not_found_error = (
                 '%s is not found in RedisPipeline\'s db table.') % spider_name
-            raise Exception(db_not_found_error)
+            warnings.warn(db_not_found_error)
         return
 
     def process_item(self, item, spider):
@@ -68,11 +69,13 @@ class RedisPipeline(object):
         if not getattr(spider, 'debug', False):
             self.connect_redis_storage(spider)
 
-            # delete empty keys in items.
-            # item = dict([(a, b) for a, b in item.items() if len(str(b)) > 0])
             epoch = int(time.time())
-            user_id = item.pop('identifier')
-            self.r.sadd('index', user_id)
-            self.r.hset(user_id, epoch, json.dumps(dict(item)))
+
+            try:
+                user_id = item.pop('identifier')
+                self.r.sadd('index', user_id)
+                self.r.hset(user_id, epoch, json.dumps(dict(item)))
+            except KeyError:
+                warnings.warn('identifier not found!')
 
         return item
